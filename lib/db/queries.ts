@@ -26,6 +26,12 @@ import {
   vote,
   type DBMessage,
   type Chat,
+  thread,
+  threadMessage,
+  type Thread,
+  type ThreadMessage,
+  userOAuthCredentials,
+  type UserOAuthCredentials
 } from './schema';
 import type { ArtifactKind } from '@/components/artifact';
 
@@ -416,6 +422,198 @@ export async function updateChatVisiblityById({
     return await db.update(chat).set({ visibility }).where(eq(chat.id, chatId));
   } catch (error) {
     console.error('Failed to update chat visibility in database');
+    throw error;
+  }
+}
+
+export async function saveThread({
+  id,
+  chatId,
+  name,
+  participantEmail,
+  status = 'awaiting_reply',
+  lastMessagePreview,
+}: {
+  id: string;
+  chatId: string;
+  name: string;
+  participantEmail?: string;
+  status?: 'awaiting_reply' | 'replied' | 'closed';
+  lastMessagePreview?: string;
+}) {
+  try {
+    return await db.insert(thread).values({
+      id,
+      chatId,
+      name,
+      participantEmail,
+      status,
+      lastMessagePreview,
+      createdAt: new Date(),
+    });
+  } catch (error) {
+    console.error('Failed to save thread in database');
+    throw error;
+  }
+}
+
+export async function getThreadsByChatId({ chatId }: { chatId: string }) {
+  try {
+    return await db
+      .select()
+      .from(thread)
+      .where(eq(thread.chatId, chatId))
+      .orderBy(desc(thread.createdAt));
+  } catch (error) {
+    console.error('Failed to get threads by chat id');
+    throw error;
+  }
+}
+
+export async function saveThreadMessages({
+  messages,
+}: {
+  messages: Array<ThreadMessage>;
+}) {
+  try {
+    return await db.insert(threadMessage).values(messages);
+  } catch (error) {
+    console.error('Failed to save thread messages in database');
+    throw error;
+  }
+}
+
+export async function getMessagesByThreadId({ threadId }: { threadId: string }) {
+  try {
+    return await db
+      .select()
+      .from(threadMessage)
+      .where(eq(threadMessage.threadId, threadId))
+      .orderBy(asc(threadMessage.createdAt));
+  } catch (error) {
+    console.error('Failed to get thread messages by thread id from database');
+    throw error;
+  }
+}
+
+export async function updateThreadStatus({
+  threadId,
+  status,
+  lastMessagePreview,
+}: {
+  threadId: string;
+  status?: 'awaiting_reply' | 'replied' | 'closed';
+  lastMessagePreview?: string;
+}) {
+  try {
+    return await db
+      .update(thread)
+      .set({
+        ...(status && { status }),
+        ...(lastMessagePreview && { lastMessagePreview }),
+      })
+      .where(eq(thread.id, threadId));
+  } catch (error) {
+    console.error('Failed to update thread');
+    throw error;
+  }
+}
+
+// UserOAuthCredentials queries
+export async function saveUserOAuthCredentials({
+  userId,
+  providerName,
+  accessToken,
+  refreshToken,
+  scopes,
+  expiresAt,
+}: Omit<UserOAuthCredentials, 'id' | 'createdAt' | 'updatedAt'>) {
+  try {
+    return await db.insert(userOAuthCredentials).values({
+      userId,
+      providerName,
+      accessToken,
+      refreshToken,
+      scopes,
+      expiresAt,
+    });
+  } catch (error) {
+    console.error('Failed to save OAuth credentials in database');
+    throw error;
+  }
+}
+
+export async function updateUserOAuthCredentials({
+  id,
+  accessToken,
+  refreshToken,
+  scopes,
+  expiresAt,
+}: Pick<UserOAuthCredentials, 'id' | 'accessToken'> & 
+  Partial<Pick<UserOAuthCredentials, 'refreshToken' | 'scopes' | 'expiresAt'>>
+) {
+  try {
+    return await db
+      .update(userOAuthCredentials)
+      .set({
+        accessToken,
+        refreshToken,
+        scopes,
+        expiresAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(userOAuthCredentials.id, id));
+  } catch (error) {
+    console.error('Failed to update OAuth credentials in database');
+    throw error;
+  }
+}
+
+export async function getUserOAuthCredentialsByUserId({ userId }: { userId: string }) {
+  try {
+    return await db
+      .select()
+      .from(userOAuthCredentials)
+      .where(eq(userOAuthCredentials.userId, userId));
+  } catch (error) {
+    console.error('Failed to get OAuth credentials by user id from database');
+    throw error;
+  }
+}
+
+export async function deleteUserOAuthCredentialsById({ id }: { id: string }) {
+  try {
+    return await db
+      .delete(userOAuthCredentials)
+      .where(eq(userOAuthCredentials.id, id));
+  } catch (error) {
+    console.error('Failed to delete OAuth credentials by id from database');
+    throw error;
+  }
+}
+
+export async function getUserOAuthCredentials({
+  userId,
+  providerName,
+}: {
+  userId: string;
+  providerName: string;
+}) {
+  try {
+    const result = await db
+      .select()
+      .from(userOAuthCredentials)
+      .where(
+        and(
+          eq(userOAuthCredentials.userId, userId),
+          eq(userOAuthCredentials.providerName, providerName)
+        )
+      )
+      .limit(1);
+    
+    return result[0];
+  } catch (error) {
+    console.error('Failed to get OAuth credentials from database');
     throw error;
   }
 }

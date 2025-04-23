@@ -15,6 +15,7 @@ import { useArtifactSelector } from '@/hooks/use-artifact';
 import { toast } from 'sonner';
 import { unstable_serialize } from 'swr/infinite';
 import { getChatHistoryPaginationKey } from './sidebar-history';
+import { ReactNode } from 'react';
 
 export function Chat({
   id,
@@ -22,15 +23,21 @@ export function Chat({
   selectedChatModel,
   selectedVisibilityType,
   isReadonly,
+  toggle,
+  isThreadChat,
+  selectedThread,
 }: {
   id: string;
   initialMessages: Array<UIMessage>;
   selectedChatModel: string;
   selectedVisibilityType: VisibilityType;
   isReadonly: boolean;
+  toggle?: ReactNode;
+  isThreadChat?: boolean;
+  selectedThread?: any;
 }) {
   const { mutate } = useSWRConfig();
-
+  
   const {
     messages,
     setMessages,
@@ -64,15 +71,25 @@ export function Chat({
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
 
+  // Conditional return after all hooks
+  if (isThreadChat && !selectedThread) {
+    return (
+      <div className="flex flex-col min-w-0 h-full bg-background">
+        <ChatHeader toggle={toggle} />
+        <div className="flex flex-1 justify-center items-center text-muted-foreground">
+          <div className="text-center p-8">
+            <p className="mb-2 text-sm font-medium">Select a thread to view its messages</p>
+            <p className="text-sm text-muted-foreground">Choose a conversation thread from the list</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      <div className="flex flex-col min-w-0 h-dvh bg-background">
-        <ChatHeader
-          chatId={id}
-          selectedModelId={selectedChatModel}
-          selectedVisibilityType={selectedVisibilityType}
-          isReadonly={isReadonly}
-        />
+      <div className="flex flex-col min-w-0 h-full bg-background">
+        <ChatHeader toggle={toggle} />
 
         <Messages
           chatId={id}

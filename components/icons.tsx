@@ -831,6 +831,74 @@ export const ChevronDownIcon = ({ size = 16 }: { size?: number }) => (
   </svg>
 );
 
+export const ChevronLeftIcon = ({ size = 16 }: { size?: number }) => (
+  <svg
+    height={size}
+    strokeLinejoin="round"
+    viewBox="0 0 16 16"
+    width={size}
+    style={{ color: 'currentcolor' }}
+  >
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M10.5 3.5L9.4 2.4L4 8L9.4 13.6L10.5 12.5L6.2 8L10.5 3.5Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+export const ChevronRightIcon = ({ size = 16 }: { size?: number }) => (
+  <svg
+    height={size}
+    strokeLinejoin="round"
+    viewBox="0 0 16 16"
+    width={size}
+    style={{ color: 'currentcolor' }}
+  >
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M5.5 2.4L6.6 1.3L12 6.9L6.6 12.5L5.5 11.4L9.8 6.9L5.5 2.4Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+export const PanelLeftIcon = ({ size = 16 }: { size?: number }) => (
+  <svg
+    height={size}
+    strokeLinejoin="round"
+    viewBox="0 0 16 16"
+    width={size}
+    style={{ color: 'currentcolor' }}
+  >
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M2 2.75C2 2.34 2.34 2 2.75 2H13.25C13.66 2 14 2.34 14 2.75V13.25C14 13.66 13.66 14 13.25 14H2.75C2.34 14 2 13.66 2 13.25V2.75ZM3.5 3.5V12.5H7V3.5H3.5ZM8.5 3.5V12.5H12.5V3.5H8.5Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+export const PanelRightIcon = ({ size = 16 }: { size?: number }) => (
+  <svg
+    height={size}
+    strokeLinejoin="round"
+    viewBox="0 0 16 16"
+    width={size}
+    style={{ color: 'currentcolor' }}
+  >
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M2 2.75C2 2.34 2.34 2 2.75 2H13.25C13.66 2 14 2.34 14 2.75V13.25C14 13.66 13.66 14 13.25 14H2.75C2.34 14 2 13.66 2 13.25V2.75ZM3.5 3.5V12.5H7.5V3.5H3.5ZM9 3.5V12.5H12.5V3.5H9Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
 export const SparklesIcon = ({ size = 16 }: { size?: number }) => (
   <svg
     height={size}
@@ -1172,3 +1240,20 @@ export const WarningIcon = ({ size = 16 }: { size?: number }) => {
     </svg>
   );
 };
+
+export const SendIcon = ({ size = 16 }: { size?: number }) => (
+  <svg
+    height={size}
+    strokeLinejoin="round"
+    viewBox="0 0 16 16"
+    width={size}
+    style={{ color: 'currentcolor' }}
+  >
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M14.4978 8.0627C14.4978 8.17568 14.4716 8.28284 14.4192 8.38419C14.3667 8.48554 14.2963 8.5751 14.2078 8.627L2.7578 14.877C2.65762 14.9351 2.54454 14.9636 2.43062 14.9597C2.31671 14.9557 2.20581 14.9195 2.11038 14.8548C2.01495 14.7901 1.93879 14.6996 1.89207 14.5933C1.84536 14.487 1.83029 14.3691 1.8478 14.252L2.4978 8.627L8.4978 8.077C8.63432 8.06648 8.75777 8.00187 8.84222 7.89935C8.92667 7.79683 8.9652 7.66644 8.9516 7.53035C8.93801 7.39425 8.87341 7.27079 8.77089 7.18635C8.66837 7.1019 8.53798 7.06336 8.4019 7.077L2.4978 7.627L1.8478 2.002C1.83054 1.8846 1.8459 1.76642 1.89302 1.66008C1.94013 1.55375 2.01678 1.46345 2.11259 1.39913C2.20841 1.33482 2.31957 1.29914 2.43355 1.29577C2.54754 1.2924 2.66045 1.32149 2.7603 1.3802L14.2103 7.6302C14.2988 7.68209 14.3691 7.77165 14.4216 7.873C14.474 7.97435 14.5002 8.08151 14.5003 8.1945L14.4978 8.0627Z"
+      fill="currentColor"
+    />
+  </svg>
+);

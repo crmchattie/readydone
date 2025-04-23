@@ -1,13 +1,26 @@
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-
 import { auth } from '@/app/(auth)/auth';
-import { Chat } from '@/components/chat';
+import { DEFAULT_CHAT_MODEL } from '@/lib/ai/models';
 import { getChatById, getMessagesByChatId } from '@/lib/db/queries';
 import { DataStreamHandler } from '@/components/data-stream-handler';
-import { DEFAULT_CHAT_MODEL } from '@/lib/ai/models';
 import { DBMessage } from '@/lib/db/schema';
 import { Attachment, UIMessage } from 'ai';
+import { FourPanelLayout } from '@/components/four-panel-layout';
+import { ChatStoreInitializer } from '@/components/chat-store-initializer';
+
+function convertToUIMessages(messages: Array<DBMessage>): Array<UIMessage> {
+  return messages.map((message) => ({
+    id: message.id,
+    parts: message.parts as UIMessage['parts'],
+    role: message.role as UIMessage['role'],
+    // Note: content will soon be deprecated in @ai-sdk/react
+    content: '',
+    createdAt: message.createdAt,
+    experimental_attachments:
+      (message.attachments as Array<Attachment>) ?? [],
+  }));
+}
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -34,31 +47,22 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     id,
   });
 
-  function convertToUIMessages(messages: Array<DBMessage>): Array<UIMessage> {
-    return messages.map((message) => ({
-      id: message.id,
-      parts: message.parts as UIMessage['parts'],
-      role: message.role as UIMessage['role'],
-      // Note: content will soon be deprecated in @ai-sdk/react
-      content: '',
-      createdAt: message.createdAt,
-      experimental_attachments:
-        (message.attachments as Array<Attachment>) ?? [],
-    }));
-  }
-
   const cookieStore = await cookies();
   const chatModelFromCookie = cookieStore.get('chat-model');
+  const isReadonly = session?.user?.id !== chat.userId;
+  const messages = convertToUIMessages(messagesFromDb);
 
   if (!chatModelFromCookie) {
     return (
       <>
-        <Chat
-          id={chat.id}
-          initialMessages={convertToUIMessages(messagesFromDb)}
+        <ChatStoreInitializer chat={chat} messages={messages} />
+        <FourPanelLayout
+          chatId={chat.id}
+          initialMessages={messages}
           selectedChatModel={DEFAULT_CHAT_MODEL}
           selectedVisibilityType={chat.visibility}
-          isReadonly={session?.user?.id !== chat.userId}
+          isReadonly={isReadonly}
+          user={session?.user}
         />
         <DataStreamHandler id={id} />
       </>
@@ -67,12 +71,14 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 
   return (
     <>
-      <Chat
-        id={chat.id}
-        initialMessages={convertToUIMessages(messagesFromDb)}
+      <ChatStoreInitializer chat={chat} messages={messages} />
+      <FourPanelLayout
+        chatId={chat.id}
+        initialMessages={messages}
         selectedChatModel={chatModelFromCookie.value}
         selectedVisibilityType={chat.visibility}
-        isReadonly={session?.user?.id !== chat.userId}
+        isReadonly={isReadonly}
+        user={session?.user}
       />
       <DataStreamHandler id={id} />
     </>

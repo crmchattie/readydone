@@ -3,6 +3,8 @@ import {
   extractReasoningMiddleware,
   wrapLanguageModel,
 } from 'ai';
+import { openai } from '@ai-sdk/openai';
+import { fireworks } from '@ai-sdk/fireworks';
 import { xai } from '@ai-sdk/xai';
 import { isTestEnvironment } from '../constants';
 import {
@@ -23,15 +25,25 @@ export const myProvider = isTestEnvironment
     })
   : customProvider({
       languageModels: {
-        'chat-model': xai('grok-2-1212'),
+        'chat-model-small': openai('gpt-4o-mini'),
+        'chat-model-large': openai('gpt-4o'),
         'chat-model-reasoning': wrapLanguageModel({
+          model: fireworks('accounts/fireworks/models/deepseek-r1'),
+          middleware: extractReasoningMiddleware({ tagName: 'think' }),
+        }),
+        'title-model': openai('gpt-4-turbo'),
+        'artifact-model': openai('gpt-4o-mini'),
+        'chat-model-grok': xai('grok-2-1212'),
+        'chat-model-reasoning-grok': wrapLanguageModel({
           model: xai('grok-3-mini-beta'),
           middleware: extractReasoningMiddleware({ tagName: 'think' }),
         }),
-        'title-model': xai('grok-2-1212'),
-        'artifact-model': xai('grok-2-1212'),
+        'title-model-grok': xai('grok-2-1212'),
+        'artifact-model-grok': xai('grok-2-1212'),
       },
       imageModels: {
-        'small-model': xai.image('grok-2-image'),
+        'small-model': openai.image('dall-e-2'),
+        'large-model': openai.image('dall-e-3'),
+        'small-model-grok': xai.image('grok-2-image'),
       },
     });

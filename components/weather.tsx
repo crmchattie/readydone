@@ -264,7 +264,7 @@ export function Weather({
         <div className="flex flex-row gap-2 items-center">
           <div
             className={cx(
-              'size-10 rounded-full skeleton-div',
+              'size-10 rounded-md skeleton-div',
               {
                 'bg-yellow-300': isDay,
               },
@@ -290,7 +290,7 @@ export function Weather({
             </div>
             <div
               className={cx(
-                'size-6 rounded-full skeleton-div',
+                'size-6 rounded-md skeleton-div',
                 {
                   'bg-yellow-300': isDay,
                 },

@@ -150,3 +150,43 @@ export const suggestion = pgTable(
 );
 
 export type Suggestion = InferSelectModel<typeof suggestion>;
+
+export const thread = pgTable('Thread', {
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  chatId: uuid('chatId').notNull().references(() => chat.id),
+  name: varchar('name', { length: 128 }).notNull(), // e.g. “Queens Roofing Co” or “Mazda Dealer NYC”
+  participantEmail: varchar('participantEmail', { length: 128 }), // optional, for external party
+  status: varchar('status', { enum: ['awaiting_reply', 'replied', 'closed'] })
+    .notNull()
+    .default('awaiting_reply'),
+  lastMessagePreview: text('lastMessagePreview'),
+  createdAt: timestamp('createdAt').notNull(),
+});
+
+export type Thread = InferSelectModel<typeof thread>;
+
+export const threadMessage = pgTable('ThreadMessage', {
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  threadId: uuid('threadId').notNull().references(() => thread.id),
+  role: varchar('role', { enum: ['user', 'ai', 'external'] }).notNull(),
+  content: json('content').notNull(), // or text() if preferred
+  createdAt: timestamp('createdAt').notNull(),
+});
+
+export type ThreadMessage = InferSelectModel<typeof threadMessage>;
+
+export const userOAuthCredentials = pgTable('UserOAuthCredentials', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('userId')
+    .notNull()
+    .references(() => user.id),
+  providerName: varchar('providerName', { length: 50 }).notNull(),
+  accessToken: text('accessToken').notNull(),
+  refreshToken: text('refreshToken'),
+  scopes: text('scopes'),
+  expiresAt: timestamp('expiresAt'),
+  createdAt: timestamp('createdAt').defaultNow(),
+  updatedAt: timestamp('updatedAt').defaultNow(),
+});
+
+export type UserOAuthCredentials = InferSelectModel<typeof userOAuthCredentials>;

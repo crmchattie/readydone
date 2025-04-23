@@ -12,6 +12,7 @@ import {
   getChatById,
   saveChat,
   saveMessages,
+  getChatsByUserId,
 } from '@/lib/db/queries';
 import {
   generateUUID,
@@ -193,5 +194,39 @@ export async function DELETE(request: Request) {
     return new Response('An error occurred while processing your request!', {
       status: 500,
     });
+  }
+}
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const userId = searchParams.get('userId');
+
+  if (!userId) {
+    return new Response('Missing userId parameter', { status: 400 });
+  }
+
+  const session = await auth();
+
+  if (!session || !session.user || session.user.id !== userId) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
+  try {
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const startingAfter = searchParams.get('starting_after');
+    const endingBefore = searchParams.get('ending_before');
+
+    const chats = await getChatsByUserId({
+      id: userId,
+      limit,
+      startingAfter: startingAfter || null,
+      endingBefore: endingBefore || null
+    });
+    return new Response(JSON.stringify(chats), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Failed to fetch chats:', error);
+    return new Response('Failed to fetch chats', { status: 500 });
   }
 }

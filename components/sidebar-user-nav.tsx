@@ -17,9 +17,18 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { usePanel } from '@/lib/panel-context';
 
 export function SidebarUserNav({ user }: { user: User }) {
   const { setTheme, theme } = useTheme();
+  const { getPanelState } = usePanel();
+  const panelState = getPanelState('chat-sidebar');
+  const isCollapsed = panelState === 'collapsed';
+
+  if (isCollapsed) {
+    // Render minimal user avatar only in collapsed state
+    return null; // Already handled by parent component
+  }
 
   return (
     <SidebarMenu>

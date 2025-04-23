@@ -23,30 +23,53 @@ import {
   ShareIcon,
   TrashIcon,
 } from './icons';
-import { memo } from 'react';
+import { MessageCircle } from 'lucide-react';
+import { memo, useEffect } from 'react';
 import { useChatVisibility } from '@/hooks/use-chat-visibility';
+
+interface ChatItemProps {
+  chat: Chat;
+  isActive?: boolean;
+  isCollapsed?: boolean;
+  onDelete?: (chatId: string) => void;
+  onSelectChat?: (chatId: string) => void | Promise<void>;
+}
 
 const PureChatItem = ({
   chat,
   isActive,
+  isCollapsed = false,
   onDelete,
-  setOpenMobile,
-}: {
-  chat: Chat;
-  isActive: boolean;
-  onDelete: (chatId: string) => void;
-  setOpenMobile: (open: boolean) => void;
-}) => {
+  onSelectChat,
+}: ChatItemProps) => {
   const { visibilityType, setVisibilityType } = useChatVisibility({
     chatId: chat.id,
     initialVisibility: chat.visibility,
   });
-
+  
+  // Debug rendering with isCollapsed prop
+  useEffect(() => {
+    console.log(`PureChatItem ${chat.id} - Rendering with isCollapsed: ${isCollapsed}`);
+  }, [chat.id, isCollapsed]);
+  
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={isActive}>
-        <Link href={`/chat/${chat.id}`} onClick={() => setOpenMobile(false)}>
-          <span>{chat.title}</span>
+      <SidebarMenuButton 
+        asChild 
+        isActive={isActive}
+        tooltip={isCollapsed ? chat.title : undefined}
+      >
+        <Link 
+          href={`/chat/${chat.id}`} 
+          onClick={() => {
+            onSelectChat?.(chat.id);
+          }}
+        >
+          {isCollapsed ? (
+            <MessageCircle className="size-4" />
+          ) : (
+            <span>{chat.title}</span>
+          )}
         </Link>
       </SidebarMenuButton>
 
@@ -101,7 +124,7 @@ const PureChatItem = ({
 
           <DropdownMenuItem
             className="cursor-pointer text-destructive focus:bg-destructive/15 focus:text-destructive dark:text-red-500"
-            onSelect={() => onDelete(chat.id)}
+            onSelect={() => onDelete?.(chat.id)}
           >
             <TrashIcon />
             <span>Delete</span>
@@ -113,6 +136,7 @@ const PureChatItem = ({
 };
 
 export const ChatItem = memo(PureChatItem, (prevProps, nextProps) => {
-  if (prevProps.isActive !== nextProps.isActive) return false;
-  return true;
+  // Never memoize - always re-render when anything changes
+  // This ensures we always respond to panel state changes
+  return false;
 });

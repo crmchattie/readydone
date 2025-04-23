@@ -90,7 +90,7 @@ const Tool = ({
     <Tooltip open={isHovered && !isAnimating}>
       <TooltipTrigger asChild>
         <motion.div
-          className={cx('p-3 rounded-full', {
+          className={cx('p-3 rounded-md', {
             'bg-primary !text-primary-foreground': selectedTool === description,
           })}
           onHoverStart={() => {
@@ -179,7 +179,7 @@ const ReadingLevelSelector = ({
           exit={{ opacity: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <div className="size-2 rounded-full bg-muted-foreground/40" />
+          <div className="size-2 rounded-md bg-muted-foreground/40" />
         </motion.div>
       ))}
 
@@ -188,7 +188,7 @@ const ReadingLevelSelector = ({
           <TooltipTrigger asChild>
             <motion.div
               className={cx(
-                'absolute bg-background p-3 border rounded-full flex flex-row items-center',
+                'absolute bg-background p-3 border rounded-md flex flex-row items-center',
                 {
                   'bg-primary text-primary-foreground': currentLevel !== 2,
                   'bg-background text-foreground': currentLevel === 2,
@@ -372,7 +372,7 @@ const PureToolbar = ({
   return (
     <TooltipProvider delayDuration={0}>
       <motion.div
-        className="cursor-pointer absolute right-6 bottom-6 p-1.5 border rounded-full shadow-lg bg-background flex flex-col justify-end"
+        className="cursor-pointer absolute right-6 bottom-6 p-1.5 border rounded-md shadow-lg bg-background flex flex-col justify-end"
         initial={{ opacity: 0, y: -20, scale: 1 }}
         animate={
           isToolbarVisible
