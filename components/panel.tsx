@@ -7,15 +7,13 @@ import { cn } from '@/lib/utils';
 import { PanelToggle } from './panel-toggle';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { PlusIcon } from 'lucide-react';
+import { MessageCircleIcon, MessageSquareTextIcon, PlusIcon } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { MessageCircleIcon } from 'lucide-react';
 import { useChatStore } from '@/lib/stores/chat-store';
 import { useRouter, useParams } from 'next/navigation';
-import { MessageSquareTextIcon } from 'lucide-react';
-import { Thread } from '@/lib/db/schema';
 import { useNavigation } from '@/lib/navigation-context';
+import { Thread } from '@/lib/db/schema';
 
 // Define constants for panel widths
 const PANEL_WIDTH_COLLAPSED = '3rem'; // Fixed width for collapsed panels (48px)

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { SerperPlacesResponse } from '../db/types';
+import { SerperPlacesResponse } from './db/types';
 
 const GOOGLE_PLACES_API = process.env.GOOGLE_PLACES_API;
 

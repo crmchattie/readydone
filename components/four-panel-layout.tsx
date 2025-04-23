@@ -1,6 +1,6 @@
 'use client';
 
-import { PanelProvider } from '@/lib/panel-context';
+import { PanelProvider, PanelType } from '@/lib/panel-context';
 import { Panel } from './panel';
 import { AppSidebar } from './app-sidebar';
 import { Chat } from './chat';
@@ -15,7 +15,6 @@ import {
   LayoutListIcon, 
   MessagesSquareIcon
 } from 'lucide-react';
-import { PanelType } from '@/lib/panel-context';
 
 // Configuration for each panel
 const PANEL_CONFIG: Record<string, {

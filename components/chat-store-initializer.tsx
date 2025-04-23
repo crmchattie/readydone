@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useChatStore, Chat } from '@/lib/stores/chat-store';
+import { useChatStore } from '@/lib/stores/chat-store';
 import { UIMessage } from 'ai';
+import { type Chat } from '@/lib/db/schema';
 
 interface ChatStoreInitializerProps {
   chat: Chat;

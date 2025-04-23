@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Image from 'next/image';
 
-// import { PlusIcon } from '@/components/icons';
-import { PlusIcon } from 'lucide-react';
+import { MessageCircleIcon, PlusIcon } from 'lucide-react';
 import { SidebarHistory } from '@/components/sidebar-history';
 import { SidebarUserNav } from '@/components/sidebar-user-nav';
 import { Button } from '@/components/ui/button';
@@ -21,7 +20,6 @@ import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { useNavigation } from '@/lib/navigation-context';
 import { usePanel } from '@/lib/panel-context';
-import { MessageCircleIcon } from 'lucide-react';
 import { PanelToggle } from './panel-toggle';
 import { useChatStore } from '@/lib/stores/chat-store';
 

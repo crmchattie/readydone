@@ -4,10 +4,9 @@ import { LoaderIcon } from 'lucide-react';
 import { Chat } from '@/components/chat';
 import { useNavigation } from '@/lib/navigation-context';
 import { generateUUID } from '@/lib/utils';
-import { useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { UIMessage } from 'ai';
 import { usePanel } from '@/lib/panel-context';
-import { ReactNode } from 'react';
 
 interface ThreadChatWrapperProps {
   threadId?: string;
