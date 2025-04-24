@@ -26,7 +26,7 @@ export function ThreadChatWrapper({ threadId: propThreadId, toggle }: ThreadChat
   // Fetch thread messages when threadId changes
   useEffect(() => {
     if (!threadId) return;
-    
+
     async function fetchThreadMessages() {
       setIsLoading(true);
       try {

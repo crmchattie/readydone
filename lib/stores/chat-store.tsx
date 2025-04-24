@@ -79,6 +79,7 @@ interface ChatContextValue extends ChatState {
   fetchChatMessages: (chatId: string) => Promise<void>;
   fetchThreads: (chatId: string) => Promise<void>;
   fetchThreadMessages: (threadId: string) => Promise<void>;
+  prefetchThreadMessages: (threads: Thread[]) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextValue | undefined>(undefined);
@@ -88,10 +89,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const setChats = useCallback((chats: Chat[]) => {
     dispatch({ type: 'SET_CHATS', payload: chats });
-  }, []);
-
-  const setCurrentChat = useCallback((chat: Chat | null) => {
-    dispatch({ type: 'SET_CURRENT_CHAT', payload: chat });
   }, []);
 
   const setCurrentChatMessages = useCallback((messages: UIMessage[]) => {
@@ -153,6 +150,23 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   }, [setLoading, setThreads]);
 
+  const setCurrentChat = useCallback((chat: Chat | null) => {
+    dispatch({ type: 'SET_CURRENT_CHAT', payload: chat });
+    // Clear messages when starting a new chat or switching chats
+    dispatch({ type: 'SET_CURRENT_CHAT_MESSAGES', payload: [] });
+    
+    // If we're starting a new chat, clear threads and thread messages
+    if (!chat) {
+      dispatch({ type: 'SET_THREADS', payload: [] });
+      dispatch({ type: 'SET_CURRENT_THREAD', payload: null });
+      dispatch({ type: 'SET_CURRENT_THREAD_MESSAGES', payload: [] });
+    }
+    // If we're switching to an existing chat, fetch its threads
+    else {
+      fetchThreads(chat.id);
+    }
+  }, [fetchThreads]);
+
   const fetchThreadMessages = useCallback(async (threadId: string) => {
     try {
       setLoading('isLoadingThreadMessages', true);
@@ -161,6 +175,37 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setCurrentThreadMessages(messages);
     } catch (error) {
       console.error('Failed to fetch thread messages:', error);
+    } finally {
+      setLoading('isLoadingThreadMessages', false);
+    }
+  }, [setLoading, setCurrentThreadMessages]);
+
+  // New method to fetch all thread messages for a chat
+  const prefetchThreadMessages = useCallback(async (threads: Thread[]) => {
+    try {
+      setLoading('isLoadingThreadMessages', true);
+      const messagePromises = threads.map(thread => 
+        fetch(`/api/thread-messages?threadId=${thread.id}`)
+          .then(res => res.json())
+          .catch(error => {
+            console.error(`Failed to fetch messages for thread ${thread.id}:`, error);
+            return [];
+          })
+      );
+      
+      const allMessages = await Promise.all(messagePromises);
+      
+      // Store messages for each thread
+      threads.forEach((thread, index) => {
+        const messages = allMessages[index];
+        // You could store these in a map or other data structure
+        // For now we'll just use currentThreadMessages
+        if (messages.length > 0) {
+          setCurrentThreadMessages(messages);
+        }
+      });
+    } catch (error) {
+      console.error('Failed to prefetch thread messages:', error);
     } finally {
       setLoading('isLoadingThreadMessages', false);
     }
@@ -178,6 +223,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     fetchChatMessages,
     fetchThreads,
     fetchThreadMessages,
+    prefetchThreadMessages,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

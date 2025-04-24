@@ -26,6 +26,8 @@ import {
 import { MessageCircle } from 'lucide-react';
 import { memo, useEffect } from 'react';
 import { useChatVisibility } from '@/hooks/use-chat-visibility';
+import { Button } from './ui/button';
+import { useChatStore } from '@/lib/stores/chat-store';
 
 interface ChatItemProps {
   chat: Chat;
@@ -47,20 +49,24 @@ const PureChatItem = ({
     initialVisibility: chat.visibility,
   });
   
+  const { currentChat } = useChatStore();
+  const isActiveChat = isActive || currentChat?.id === chat.id;
+  
   // Debug rendering with isCollapsed prop
   useEffect(() => {
-    console.log(`PureChatItem ${chat.id} - Rendering with isCollapsed: ${isCollapsed}`);
-  }, [chat.id, isCollapsed]);
+    console.log(`PureChatItem ${chat.id} - Rendering with isCollapsed: ${isCollapsed}, isActive: ${isActiveChat}`);
+  }, [chat.id, isCollapsed, isActiveChat]);
   
   return (
     <SidebarMenuItem>
       <SidebarMenuButton 
         asChild 
-        isActive={isActive}
+        isActive={isActiveChat}
         tooltip={isCollapsed ? chat.title : undefined}
       >
-        <Link 
-          href={`/chat/${chat.id}`} 
+        <Button 
+          variant="ghost"
+          className="w-full text-left"
           onClick={() => {
             onSelectChat?.(chat.id);
           }}
@@ -70,7 +76,7 @@ const PureChatItem = ({
           ) : (
             <span>{chat.title}</span>
           )}
-        </Link>
+        </Button>
       </SidebarMenuButton>
 
       <DropdownMenu modal={true}>

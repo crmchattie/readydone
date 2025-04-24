@@ -35,14 +35,14 @@ function convertToThreadType(thread: Thread): ThreadType {
 export function ThreadsSidebar({ chatId, onThreadClick, toggle }: ThreadsSidebarProps) {
   const { setThreads: setNavigationThreads, setSelectedThreadId } = useNavigation();
   const { showPanel } = usePanel();
-  const { threads: storeThreads, isLoadingThreads, fetchThreads } = useChatStore();
+  const { threads: storeThreads, isLoadingThreads, currentChat, fetchThreads } = useChatStore();
 
-  // Fetch threads when component mounts or chatId changes
+  // Fetch threads when the component mounts or when current chat changes
   useEffect(() => {
-    if (chatId) {
-      fetchThreads(chatId);
+    if (currentChat?.id) {
+      fetchThreads(currentChat.id);
     }
-  }, [chatId, fetchThreads]);
+  }, [currentChat?.id, fetchThreads]);
 
   // Update navigation context whenever store threads change
   useEffect(() => {

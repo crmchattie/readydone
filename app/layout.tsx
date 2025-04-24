@@ -7,9 +7,9 @@ import { ChatProvider } from '@/lib/stores/chat-store';
 import './globals.css';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://chat.vercel.ai'),
-  title: 'Next.js Chatbot Template',
-  description: 'Next.js chatbot template using the AI SDK.',
+  metadataBase: new URL('https://plotliving.com'),
+  title: 'Plot',
+  description: 'Skip the search. Skip the email. Just ask.',
 };
 
 export const viewport = {

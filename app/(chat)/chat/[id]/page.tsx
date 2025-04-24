@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { auth } from '@/app/(auth)/auth';
 import { DEFAULT_CHAT_MODEL } from '@/lib/ai/models';
-import { getChatById, getMessagesByChatId } from '@/lib/db/queries';
+import { getChatById, getMessagesByChatId, getThreadsByChatId } from '@/lib/db/queries';
 import { DataStreamHandler } from '@/components/data-stream-handler';
 import { DBMessage } from '@/lib/db/schema';
 import { Attachment, UIMessage } from 'ai';
@@ -47,6 +47,9 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     id,
   });
 
+  // Fetch threads early
+  const threads = await getThreadsByChatId({ chatId: id });
+
   const cookieStore = await cookies();
   const chatModelFromCookie = cookieStore.get('chat-model');
   const isReadonly = session?.user?.id !== chat.userId;
@@ -55,10 +58,12 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   if (!chatModelFromCookie) {
     return (
       <>
-        <ChatStoreInitializer chat={chat} messages={messages} />
+        <ChatStoreInitializer 
+          chat={chat} 
+          messages={messages}
+          threads={threads}
+        />
         <FourPanelLayout
-          chatId={chat.id}
-          initialMessages={messages}
           selectedChatModel={DEFAULT_CHAT_MODEL}
           selectedVisibilityType={chat.visibility}
           isReadonly={isReadonly}
@@ -71,10 +76,12 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 
   return (
     <>
-      <ChatStoreInitializer chat={chat} messages={messages} />
+      <ChatStoreInitializer 
+        chat={chat} 
+        messages={messages}
+        threads={threads}
+      />
       <FourPanelLayout
-        chatId={chat.id}
-        initialMessages={messages}
         selectedChatModel={chatModelFromCookie.value}
         selectedVisibilityType={chat.visibility}
         isReadonly={isReadonly}

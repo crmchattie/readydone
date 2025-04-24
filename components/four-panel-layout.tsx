@@ -1,6 +1,7 @@
 'use client';
 
 import { PanelProvider, PanelType } from '@/lib/panel-context';
+import { Thread } from '@/lib/db/schema';
 import { Panel } from './panel';
 import { AppSidebar } from './app-sidebar';
 import { Chat } from './chat';
@@ -15,6 +16,7 @@ import {
   LayoutListIcon, 
   MessagesSquareIcon
 } from 'lucide-react';
+import { useChatStore } from '@/lib/stores/chat-store';
 
 // Configuration for each panel
 const PANEL_CONFIG: Record<string, {
@@ -55,24 +57,21 @@ const PANEL_CONFIG: Record<string, {
 };
 
 interface FourPanelLayoutProps {
-  chatId: string;
-  initialMessages: any[];
   selectedChatModel: string;
-  selectedVisibilityType: string;
+  selectedVisibilityType: 'public' | 'private';
   isReadonly: boolean;
   user: any;
 }
 
 // Inner component that has access to the navigation context
 function FourPanelLayoutInner({
-  chatId,
-  initialMessages,
   selectedChatModel,
   selectedVisibilityType,
   isReadonly,
   user,
 }: FourPanelLayoutProps) {
   const { selectedThreadId, setSelectedThreadId } = useNavigation();
+  const { currentChat, currentChatMessages } = useChatStore();
   
   // Thread selection handler
   const handleThreadClick = useCallback((threadId: string) => {
@@ -114,10 +113,10 @@ function FourPanelLayoutInner({
         >
           {({ toggle }) => (
             <Chat
-              id={chatId}
-              initialMessages={initialMessages}
+              id={currentChat?.id || ''}
+              initialMessages={currentChatMessages}
               selectedChatModel={selectedChatModel}
-              selectedVisibilityType={selectedVisibilityType as any}
+              selectedVisibilityType={selectedVisibilityType}
               isReadonly={isReadonly}
               toggle={toggle}
             />
@@ -135,7 +134,7 @@ function FourPanelLayoutInner({
           {({ toggle }) => (
             <div className="size-full">
               <ThreadsSidebar 
-                chatId={chatId} 
+                chatId={currentChat?.id || ''} 
                 onThreadClick={handleThreadClick}
                 toggle={toggle}
               />

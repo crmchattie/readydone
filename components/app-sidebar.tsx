@@ -34,7 +34,8 @@ export function AppSidebar({ user }: { user: User | undefined }) {
     isLoadingChats,
     fetchChats,
     setCurrentChat,
-    fetchChatMessages
+    fetchChatMessages,
+    fetchThreads
   } = useChatStore();
   
   // Derive isCollapsed directly from panelStates every render - single source of truth
@@ -76,16 +77,21 @@ export function AppSidebar({ user }: { user: User | undefined }) {
   }, [chats, setCurrentChat, fetchChatMessages, showPanel]);
 
   const handleNewChat = () => {
-    router.push('/');
-    router.refresh();
+    setCurrentChat(null);
+    if (panelStates['chat'] === 'collapsed') {
+      showPanel('chat');
+    }
   };
 
   const handleSelectChat = async (chatId: string) => {
     const selectedChat = chats.find(chat => chat.id === chatId);
     if (selectedChat) {
       setCurrentChat(selectedChat);
-      await fetchChatMessages(chatId);
-      router.push(`/chat/${chatId}`);
+      await Promise.all([
+        fetchChatMessages(chatId),
+        fetchThreads(chatId)
+      ]);
+      showPanel('chat');
     }
   };
 

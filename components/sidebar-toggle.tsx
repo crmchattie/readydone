@@ -6,7 +6,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-import { SidebarLeftIcon } from './icons';
+import { PanelLeftIcon } from './icons';
 import { Button } from './ui/button';
 import { usePanel } from '@/lib/panel-context';
 
@@ -31,7 +31,7 @@ export function SidebarToggle({
           variant="outline"
           className="md:px-2 md:h-fit"
         >
-          <SidebarLeftIcon size={16} />
+          <PanelLeftIcon size={16} />
         </Button>
       </TooltipTrigger>
       <TooltipContent align="start">

@@ -14,6 +14,15 @@ import { useChatStore } from '@/lib/stores/chat-store';
 import { useRouter, useParams } from 'next/navigation';
 import { useNavigation } from '@/lib/navigation-context';
 import { Thread } from '@/lib/db/schema';
+import { useTheme } from 'next-themes';
+import { signOut } from 'next-auth/react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 // Define constants for panel widths
 const PANEL_WIDTH_COLLAPSED = '3rem'; // Fixed width for collapsed panels (48px)
@@ -47,11 +56,12 @@ export function Panel({
   isSidebar = type.includes('sidebar'), // Default based on panel type
   user,
 }: PanelProps) {
-  const { chats, threads, fetchThreads, setCurrentChat, fetchChatMessages } = useChatStore();
+  const { chats, threads, currentChat, fetchThreads, setCurrentChat, fetchChatMessages } = useChatStore();
   const router = useRouter();
   const params = useParams();
-  const { setSelectedThreadId } = useNavigation();
+  const { selectedThreadId, setSelectedThreadId, setThreads: setNavigationThreads } = useNavigation();
   const { isPanelVisible, visiblePanels, getPanelState, showPanel, getPanelCategory } = usePanel();
+  const { setTheme, theme } = useTheme();
   const isVisible = isPanelVisible(type);
   const panelState = getPanelState(type);
   const isCollapsed = panelState === 'collapsed';
@@ -59,12 +69,27 @@ export function Panel({
   // Get the current chat ID from the URL params
   const chatId = typeof params?.id === 'string' ? params.id : null;
 
-  // Fetch threads when needed
+  // Fetch threads when the threads sidebar becomes visible or when current chat changes
   useEffect(() => {
-    if (type === 'threads-sidebar' && chatId) {
-      fetchThreads(chatId);
+    if (type === 'threads-sidebar' && currentChat?.id) {
+      fetchThreads(currentChat.id);
     }
-  }, [type, chatId, fetchThreads]);
+  }, [type, currentChat?.id, fetchThreads, isVisible]);
+
+  // Sync threads with navigation context
+  useEffect(() => {
+    if (type === 'threads-sidebar' && threads) {
+      const navigationThreads = threads.map(thread => ({
+        id: thread.id,
+        name: thread.name,
+        status: (thread.status === 'awaiting_reply' ? 'pending' 
+               : thread.status === 'replied' ? 'replied' 
+               : 'contacted') as 'pending' | 'replied' | 'contacted',
+        lastMessage: thread.lastMessagePreview || 'No messages yet'
+      }));
+      setNavigationThreads(navigationThreads);
+    }
+  }, [type, threads, setNavigationThreads]);
 
   // Create the toggle component
   const toggleComponent = (
@@ -126,8 +151,9 @@ export function Panel({
 
   const handleNewChat = () => {
     setCurrentChat(null);
-    showPanel('chat');
-    router.push('/');
+    if (panelState === 'collapsed') {
+      showPanel('chat');
+    }
   };
 
   const handleChatSelect = async (chatId: string) => {
@@ -135,8 +161,9 @@ export function Panel({
     if (selectedChat) {
       setCurrentChat(selectedChat);
       await fetchChatMessages(chatId);
-      showPanel('chat');
-      router.push(`/chat/${chatId}`);
+      if (panelState === 'collapsed') {
+        showPanel('chat');
+      }
     }
   };
 
@@ -163,7 +190,7 @@ export function Panel({
         }}
         className={cn(
           "h-full relative border-r",
-          isCollapsed ? "flex flex-col items-center py-4" : "",
+          isCollapsed ? "flex flex-col items-center pt-4" : "",
           isSidebar ? "bg-muted/30" : "",
           className
         )}
@@ -217,7 +244,10 @@ export function Panel({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="size-8 rounded-md text-primary hover:bg-primary/10"
+                          className={cn(
+                            "size-8 rounded-md text-primary hover:bg-primary/10",
+                            currentChat?.id === chat.id && "bg-primary/15 text-primary/80"
+                          )}
                           onClick={() => handleChatSelect(chat.id)}
                         >
                           <MessageCircleIcon className="size-5" />
@@ -232,21 +262,25 @@ export function Panel({
               )}
 
               {/* Thread Icons - Only for threads sidebar */}
-              {type === 'threads-sidebar' && chatId && (
+              {type === 'threads-sidebar' && currentChat?.id && (
                 <div className="flex flex-col gap-2 max-h-[40vh] overflow-y-auto scrollbar-hide">
-                  {threads?.slice(0, 5).map((thread: Thread) => (
+                  {threads?.map((thread: Thread) => (
                     <Tooltip key={thread.id}>
                       <TooltipTrigger asChild>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="size-8 rounded-md text-primary hover:bg-primary/10"
+                          className={cn(
+                            "size-8 rounded-md text-primary hover:bg-primary/10",
+                            selectedThreadId === thread.id && "bg-primary/15 text-primary/80"
+                          )}
                           onClick={() => {
                             setSelectedThreadId(thread.id);
                             showPanel('thread-chat');
                           }}
                         >
                           <MessageSquareTextIcon className="size-5" />
+                          <span className="sr-only">{thread.name}</span>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="right">
@@ -260,18 +294,52 @@ export function Panel({
 
             {/* User avatar for chat sidebar - at the bottom */}
             {type === 'chat-sidebar' && user && (
-              <div className="mt-auto mb-4">
-                <Link href="/settings">
-                  <div className="size-8 rounded-full overflow-hidden cursor-pointer">
-                    <Image
-                      src={`https://avatar.vercel.sh/${user.email}`}
-                      alt={user.email ?? 'User Avatar'}
-                      className="size-full object-cover"
-                      width={32}
-                      height={32}
-                    />
-                  </div>
-                </Link>
+              <div className="mt-auto mb-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="size-8 p-0 rounded-full overflow-hidden cursor-pointer"
+                    >
+                      <Image
+                        src={`https://avatar.vercel.sh/${user.email}`}
+                        alt={user.email ?? 'User Avatar'}
+                        className="size-full object-cover"
+                        width={32}
+                        height={32}
+                      />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    side="right"
+                    align="end"
+                    className="w-[200px]"
+                  >
+                    <DropdownMenuItem disabled className="opacity-50">
+                      {user.email}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="cursor-pointer"
+                      onSelect={() => {
+                        setTheme(theme === 'dark' ? 'light' : 'dark');
+                      }}
+                    >
+                      {`Toggle ${theme === 'light' ? 'dark' : 'light'} mode`}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="cursor-pointer"
+                      onSelect={() => {
+                        signOut({
+                          redirectTo: '/',
+                        });
+                      }}
+                    >
+                      Sign out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             )}
           </div>
