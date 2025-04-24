@@ -4,6 +4,7 @@ import { PanelLeftIcon, PanelRightIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PanelType, usePanel } from '@/lib/panel-context';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useMemo } from 'react';
 
 interface PanelToggleProps {
   panel: PanelType;
@@ -19,7 +20,10 @@ export function PanelToggle({ panel, direction, label, className, onToggle }: Pa
     isPanelVisible, 
     getPanelState, 
     getPanelCategory,
-    visiblePanels
+    visiblePanels,
+    isMobile,
+    activeMobilePanel,
+    showPanel
   } = usePanel();
   
   const isVisible = isPanelVisible(panel);
@@ -27,12 +31,15 @@ export function PanelToggle({ panel, direction, label, className, onToggle }: Pa
   const isCollapsed = panelState === 'collapsed';
   const isSidebar = getPanelCategory(panel) === 'sidebar';
 
-  // For content panels, check if it's the only expanded content panel
-  const isOnlyExpandedContentPanel = () => {
+  // Memoize the expanded content panel check to prevent unnecessary recalculations
+  const isOnlyExpandedContentPanel = useMemo(() => {
     // Sidebar panels are never the only expanded panel
     if (isSidebar) return false;
     
-    // For content panels, check if it's the only expanded one
+    // For content panels in mobile, just check if it's active
+    if (isMobile) return activeMobilePanel === panel;
+    
+    // For content panels in desktop, check if it's the only expanded one
     if (!isCollapsed) {
       const expandedContentPanels = visiblePanels.filter(p => 
         getPanelCategory(p) === 'content' && 
@@ -43,22 +50,28 @@ export function PanelToggle({ panel, direction, label, className, onToggle }: Pa
     }
     
     return false;
-  };
+  }, [isSidebar, isMobile, activeMobilePanel, panel, isCollapsed, visiblePanels, getPanelCategory, getPanelState]);
 
   // Handle toggle button click
   const handleToggleClick = () => {
-    if (isVisible && !isOnlyExpandedContentPanel()) {
-      if (onToggle) {
-        onToggle(!isCollapsed);
-      } else {
-        toggleCollapsed(panel);
+    if (!isVisible) return;
+    
+    if (onToggle) {
+      onToggle(!isCollapsed);
+    } else if (isMobile) {
+      // In mobile, only change panel if it's not already active
+      if (activeMobilePanel !== panel) {
+        showPanel(panel);
       }
+    } else {
+      toggleCollapsed(panel);
     }
   };
 
-  const isDisabled = isOnlyExpandedContentPanel();
+  // Disable toggle when it's the active panel on mobile
+  const isDisabled = (isMobile && activeMobilePanel === panel) || (!isMobile && isOnlyExpandedContentPanel);
   const tooltipText = isDisabled 
-    ? 'Cannot collapse the only visible chat panel'
+    ? isMobile ? 'Cannot collapse the active panel on mobile' : 'Cannot collapse the only visible chat panel'
     : isCollapsed ? 'Expand' : 'Collapse';
 
   return (
@@ -72,10 +85,9 @@ export function PanelToggle({ panel, direction, label, className, onToggle }: Pa
             onClick={handleToggleClick}
             disabled={isDisabled}
           >
-            {direction === 'left' && (
+            {direction === 'left' ? (
               <PanelRightIcon className="size-5" />
-            )}
-            {direction === 'right' && (
+            ) : (
               <PanelLeftIcon className="size-5" />
             )}
           </Button>

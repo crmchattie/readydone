@@ -1,5 +1,5 @@
 import { auth } from '@/app/(auth)/auth';
-import { getChatById, getVotesByChatId, voteMessage } from '@/lib/db/queries';
+import { getChatById, getVotesByChatId, voteMessage, getChatParticipants } from '@/lib/db/queries';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -15,13 +15,11 @@ export async function GET(request: Request) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const chat = await getChatById({ id: chatId });
+  // Check if user has access to the chat
+  const participants = await getChatParticipants({ chatId });
+  const userAccess = participants.find(p => p.participant.id === session.user?.id);
 
-  if (!chat) {
-    return new Response('Chat not found', { status: 404 });
-  }
-
-  if (chat.userId !== session.user.id) {
+  if (!userAccess) {
     return new Response('Unauthorized', { status: 401 });
   }
 
@@ -48,13 +46,11 @@ export async function PATCH(request: Request) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const chat = await getChatById({ id: chatId });
+  // Check if user has access to the chat
+  const participants = await getChatParticipants({ chatId });
+  const userAccess = participants.find(p => p.participant.id === session.user?.id);
 
-  if (!chat) {
-    return new Response('Chat not found', { status: 404 });
-  }
-
-  if (chat.userId !== session.user.id) {
+  if (!userAccess) {
     return new Response('Unauthorized', { status: 401 });
   }
 

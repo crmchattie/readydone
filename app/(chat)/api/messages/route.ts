@@ -1,5 +1,5 @@
 import { auth } from '@/app/(auth)/auth';
-import { getChatById, getMessagesByChatId } from '@/lib/db/queries';
+import { getChatById, getMessagesByChatId, getChatParticipants } from '@/lib/db/queries';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
@@ -11,6 +11,7 @@ export async function GET(request: Request) {
     });
   }
 
+  const userId = session.user.id;
   const { searchParams } = new URL(request.url);
   const chatId = searchParams.get('chatId');
 
@@ -30,11 +31,15 @@ export async function GET(request: Request) {
       });
     }
 
-    // For private chats, verify ownership
-    if (chat.visibility === 'private' && chat.userId !== session.user.id) {
-      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-      });
+    // For private chats, verify participation
+    if (chat.visibility === 'private') {
+      const participants = await getChatParticipants({ chatId });
+      const isParticipant = participants.some(p => p.participant.id === userId);
+      if (!isParticipant) {
+        return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+        });
+      }
     }
 
     // Get messages

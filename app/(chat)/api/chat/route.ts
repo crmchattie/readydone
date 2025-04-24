@@ -13,6 +13,7 @@ import {
   saveChat,
   saveMessages,
   getChatsByUserId,
+  getChatParticipants,
 } from '@/lib/db/queries';
 import {
   generateUUID,
@@ -62,7 +63,11 @@ export async function POST(request: Request) {
 
       await saveChat({ id, userId: session.user.id, title });
     } else {
-      if (chat.userId !== session.user.id) {
+      // Check if user has access to the chat
+      const participants = await getChatParticipants({ chatId: id });
+      const userAccess = participants.find(p => p.participant.id === session.user?.id);
+      
+      if (!userAccess) {
         return new Response('Unauthorized', { status: 401 });
       }
     }
@@ -181,9 +186,14 @@ export async function DELETE(request: Request) {
   }
 
   try {
-    const chat = await getChatById({ id });
+    // Check if user is owner of the chat
+    const participants = await getChatParticipants({ chatId: id });
+    const userAccess = participants.find(p => 
+      p.participant.id === session.user?.id && 
+      p.role === 'owner'
+    );
 
-    if (chat.userId !== session.user.id) {
+    if (!userAccess) {
       return new Response('Unauthorized', { status: 401 });
     }
 

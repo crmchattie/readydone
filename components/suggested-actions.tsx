@@ -20,23 +20,23 @@ function PureSuggestedActions({ chatId, append }: SuggestedActionsProps) {
       icon: Car,
     },
     {
-      title: 'Shop for Insurance',
-      description: 'Compare insurance quotes effortlessly as AI reaches out to providers and organizes their responses for easy review.',
-      action: 'I need help finding insurance coverage. Can you help me get and compare quotes from different providers?',
-      icon: Shield,
-    },
-    {
-      title: 'Get Estimates for a Home Project',
-      description: 'Let AI find and contact local contractors for your home project, gathering estimates and organizing responses.',
-      action: 'I need help finding contractors for a home project. Can you help me get and compare estimates?',
-      icon: Wrench,
-    },
-    {
       title: 'Plan an Event',
       description: 'Streamline your event planning as AI contacts venues and vendors, collecting pricing and availability in one place.',
       action: 'I need help planning an event. Can you help me find and compare venues, caterers, and other vendors?',
       icon: CalendarDays,
     },
+    {
+      title: 'Shop for Insurance',
+      description: 'Compare insurance quotes effortlessly as AI reaches out to providers and organizes their responses for review.',
+      action: 'I need help finding insurance coverage. Can you help me get and compare quotes from different providers?',
+      icon: Shield,
+    },
+    {
+      title: 'Get Project Estimates',
+      description: 'Let AI find and contact local contractors for your home project, gathering estimates and organizing responses.',
+      action: 'I need help finding contractors for a home project. Can you help me get and compare estimates?',
+      icon: Wrench,
+    }
   ];
 
   return (
@@ -67,7 +67,7 @@ function PureSuggestedActions({ chatId, append }: SuggestedActionsProps) {
             >
               <div className="flex items-center gap-2 w-full">
                 <Icon className="size-5 text-primary" />
-                <span className="font-semibold text-base">{suggestedAction.title}</span>
+                <h3 className="font-semibold text-base break-words leading-tight m-0">{suggestedAction.title}</h3>
               </div>
               <p className="text-muted-foreground text-sm leading-relaxed whitespace-normal break-words">
                 {suggestedAction.description}

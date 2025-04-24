@@ -4,6 +4,7 @@ import {
   deleteDocumentsByIdAfterTimestamp,
   getDocumentsById,
   saveDocument,
+  getDocumentAccess,
 } from '@/lib/db/queries';
 
 export async function GET(request: Request) {
@@ -21,14 +22,21 @@ export async function GET(request: Request) {
   }
 
   const documents = await getDocumentsById({ id });
-
   const [document] = documents;
 
   if (!document) {
     return new Response('Not found', { status: 404 });
   }
 
-  if (document.userId !== session.user.id) {
+  // Check if user has access to the document
+  const access = await getDocumentAccess({ 
+    documentId: document.id, 
+    documentCreatedAt: document.createdAt 
+  });
+  
+  const userAccess = access.find(a => a.user.id === session.user?.id);
+
+  if (!userAccess) {
     return new Response('Forbidden', { status: 403 });
   }
 
@@ -60,8 +68,19 @@ export async function POST(request: Request) {
 
   if (documents.length > 0) {
     const [document] = documents;
+    
+    // Check if user has edit access to the document
+    const access = await getDocumentAccess({ 
+      documentId: document.id, 
+      documentCreatedAt: document.createdAt 
+    });
+    
+    const userAccess = access.find(a => 
+      a.user.id === session.user?.id && 
+      ['owner', 'editor'].includes(a.role)
+    );
 
-    if (document.userId !== session.user.id) {
+    if (!userAccess) {
       return new Response('Forbidden', { status: 403 });
     }
   }
@@ -97,11 +116,25 @@ export async function DELETE(request: Request) {
   }
 
   const documents = await getDocumentsById({ id });
-
   const [document] = documents;
 
-  if (document.userId !== session.user.id) {
-    return new Response('Unauthorized', { status: 401 });
+  if (!document) {
+    return new Response('Not found', { status: 404 });
+  }
+
+  // Check if user has owner access to the document
+  const access = await getDocumentAccess({ 
+    documentId: document.id, 
+    documentCreatedAt: document.createdAt 
+  });
+  
+  const userAccess = access.find(a => 
+    a.user.id === session.user?.id && 
+    a.role === 'owner'
+  );
+
+  if (!userAccess) {
+    return new Response('Forbidden', { status: 403 });
   }
 
   const documentsDeleted = await deleteDocumentsByIdAfterTimestamp({

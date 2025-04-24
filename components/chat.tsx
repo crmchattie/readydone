@@ -37,6 +37,9 @@ export function Chat({
 }) {
   const { mutate } = useSWRConfig();
   
+  // Ensure initialMessages is an array
+  const safeInitialMessages = Array.isArray(initialMessages) ? initialMessages : [];
+  
   const {
     messages,
     setMessages,
@@ -50,7 +53,7 @@ export function Chat({
   } = useChat({
     id,
     body: { id, selectedChatModel: selectedChatModel },
-    initialMessages,
+    initialMessages: safeInitialMessages,
     experimental_throttle: 100,
     sendExtraMessageFields: true,
     generateId: generateUUID,
@@ -63,7 +66,7 @@ export function Chat({
   });
 
   const { data: votes } = useSWR<Array<Vote>>(
-    messages.length >= 2 ? `/api/vote?chatId=${id}` : null,
+    messages?.length >= 2 ? `/api/vote?chatId=${id}` : null,
     fetcher,
   );
 

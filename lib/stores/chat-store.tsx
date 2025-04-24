@@ -88,6 +88,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(chatReducer, initialState);
 
   const setChats = useCallback((chats: Chat[]) => {
+    console.log('ChatStore - Setting chats:', chats);
     dispatch({ type: 'SET_CHATS', payload: chats });
   }, []);
 
@@ -113,13 +114,25 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const fetchChats = useCallback(async (userId: string) => {
     try {
+      console.log('ChatStore - Fetching chats for user:', userId);
       setLoading('isLoadingChats', true);
-      const response = await fetch(`/api/chat?userId=${userId}`);
+      const response = await fetch(`/api/chat/list?userId=${userId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch chats');
+      }
       const data = await response.json();
-      setChats(data.chats || []);
+      // Extract just the chat objects from the response
+      const transformedChats = data.chats.map((item: any) => ({
+        id: item.chat.id,
+        createdAt: new Date(item.chat.createdAt),
+        title: item.chat.title,
+        visibility: item.chat.visibility
+      }));
+      console.log('ChatStore - Transformed chats:', transformedChats);
+      setChats(transformedChats);
+      setLoading('isLoadingChats', false);
     } catch (error) {
-      console.error('Failed to fetch chats:', error);
-    } finally {
+      console.error('Error fetching chats:', error);
       setLoading('isLoadingChats', false);
     }
   }, [setLoading, setChats]);
@@ -141,10 +154,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     try {
       setLoading('isLoadingThreads', true);
       const response = await fetch(`/api/threads?chatId=${chatId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch threads');
+      }
       const threads = await response.json();
-      setThreads(threads);
+      // Ensure threads is an array
+      setThreads(Array.isArray(threads) ? threads : []);
     } catch (error) {
       console.error('Failed to fetch threads:', error);
+      setThreads([]); // Set empty array on error
     } finally {
       setLoading('isLoadingThreads', false);
     }
@@ -152,19 +170,23 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const setCurrentChat = useCallback((chat: Chat | null) => {
     dispatch({ type: 'SET_CURRENT_CHAT', payload: chat });
-    // Clear messages when starting a new chat or switching chats
+    
+    // Clear messages when switching chats
     dispatch({ type: 'SET_CURRENT_CHAT_MESSAGES', payload: [] });
     
-    // If we're starting a new chat, clear threads and thread messages
-    if (!chat) {
+    // Clear threads and thread messages if no chat is selected
+    if (!chat?.id) {
       dispatch({ type: 'SET_THREADS', payload: [] });
       dispatch({ type: 'SET_CURRENT_THREAD', payload: null });
       dispatch({ type: 'SET_CURRENT_THREAD_MESSAGES', payload: [] });
+      return;
     }
-    // If we're switching to an existing chat, fetch its threads
-    else {
-      fetchThreads(chat.id);
-    }
+    
+    // Fetch threads for the selected chat
+    fetchThreads(chat.id).catch(error => {
+      console.error('Failed to fetch threads:', error);
+      dispatch({ type: 'SET_THREADS', payload: [] });
+    });
   }, [fetchThreads]);
 
   const fetchThreadMessages = useCallback(async (threadId: string) => {

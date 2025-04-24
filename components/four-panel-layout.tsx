@@ -9,14 +9,15 @@ import { ThreadsSidebar } from './threads-sidebar';
 import { ThreadChatWrapper } from './thread-chat-wrapper';
 import { NavigationProvider, useNavigation } from '@/lib/navigation-context';
 import { SidebarProvider } from './ui/sidebar';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { 
   MessageCircleIcon, 
   MessageSquareTextIcon, 
   LayoutListIcon, 
   MessagesSquareIcon
 } from 'lucide-react';
-import { useChatStore } from '@/lib/stores/chat-store';
+import { useChatStore, ChatProvider } from '@/lib/stores/chat-store';
+import { ChatSidebar } from './chat-sidebar';
 
 // Configuration for each panel
 const PANEL_CONFIG: Record<string, {
@@ -27,28 +28,28 @@ const PANEL_CONFIG: Record<string, {
   isSidebar: boolean;
 }> = {
   chatSidebar: {
-    type: 'chat-sidebar' as PanelType,
+    type: 'chat-sidebar',
     toggleDirection: 'right',
     toggleLabel: 'Chats',
     icon: <MessageCircleIcon className="size-5" />,
     isSidebar: true
   },
   chat: {
-    type: 'chat' as PanelType,
+    type: 'chat',
     toggleDirection: 'right',
     toggleLabel: 'Chat',
     icon: <MessageSquareTextIcon className="size-5" />,
     isSidebar: false
   },
   threadsSidebar: {
-    type: 'threads-sidebar' as PanelType,
-    toggleDirection: 'right',
+    type: 'threads-sidebar',
+    toggleDirection: 'left',
     toggleLabel: 'Threads',
     icon: <LayoutListIcon className="size-5" />,
     isSidebar: true
   },
   threadChat: {
-    type: 'thread-chat' as PanelType,
+    type: 'thread-chat',
     toggleDirection: 'left',
     toggleLabel: 'Thread',
     icon: <MessagesSquareIcon className="size-5" />,
@@ -61,6 +62,7 @@ interface FourPanelLayoutProps {
   selectedVisibilityType: 'public' | 'private';
   isReadonly: boolean;
   user: any;
+  initialChats: any[];
 }
 
 // Inner component that has access to the navigation context
@@ -69,9 +71,18 @@ function FourPanelLayoutInner({
   selectedVisibilityType,
   isReadonly,
   user,
+  initialChats,
 }: FourPanelLayoutProps) {
   const { selectedThreadId, setSelectedThreadId } = useNavigation();
-  const { currentChat, currentChatMessages } = useChatStore();
+  const { currentChat, currentChatMessages, setChats } = useChatStore();
+  
+  // Initialize chat store with initial chats
+  useEffect(() => {
+    console.log('FourPanelLayout - Initializing with chats:', initialChats);
+    if (initialChats?.length) {
+      setChats(initialChats);
+    }
+  }, [initialChats, setChats]);
   
   // Thread selection handler
   const handleThreadClick = useCallback((threadId: string) => {
@@ -99,7 +110,7 @@ function FourPanelLayoutInner({
           user={user}
         >
           <div className="size-full">
-            <AppSidebar user={user} />
+            <ChatSidebar user={user} />
           </div>
         </Panel>
 
@@ -164,7 +175,9 @@ export function FourPanelLayout(props: FourPanelLayoutProps) {
   return (
     <NavigationProvider>
       <SidebarProvider>
-        <FourPanelLayoutInner {...props} />
+        <ChatProvider>
+          <FourPanelLayoutInner {...props} />
+        </ChatProvider>
       </SidebarProvider>
     </NavigationProvider>
   );

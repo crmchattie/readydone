@@ -23,15 +23,23 @@ export const chat = pgTable('Chat', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
   createdAt: timestamp('createdAt').notNull(),
   title: text('title').notNull(),
-  userId: uuid('userId')
-    .notNull()
-    .references(() => user.id),
   visibility: varchar('visibility', { enum: ['public', 'private'] })
     .notNull()
     .default('private'),
 });
 
 export type Chat = InferSelectModel<typeof chat>;
+
+export const chatParticipant = pgTable('ChatParticipant', {
+  chatId: uuid('chatId').notNull().references(() => chat.id, { onDelete: 'cascade' }),
+  userId: uuid('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  role: varchar('role', { enum: ['owner', 'editor', 'viewer'] }).notNull().default('viewer'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.chatId, table.userId] }),
+}));
+
+export type ChatParticipant = InferSelectModel<typeof chatParticipant>;
 
 // DEPRECATED: The following schema is deprecated and will be removed in the future.
 // Read the migration guide at https://github.com/vercel/ai-chatbot/blob/main/docs/04-migrate-to-parts.md
@@ -102,28 +110,34 @@ export const vote = pgTable(
 
 export type Vote = InferSelectModel<typeof vote>;
 
-export const document = pgTable(
-  'Document',
-  {
-    id: uuid('id').notNull().defaultRandom(),
-    createdAt: timestamp('createdAt').notNull(),
-    title: text('title').notNull(),
-    content: text('content'),
-    kind: varchar('text', { enum: ['text', 'code', 'image', 'sheet'] })
-      .notNull()
-      .default('text'),
-    userId: uuid('userId')
-      .notNull()
-      .references(() => user.id),
-  },
-  (table) => {
-    return {
-      pk: primaryKey({ columns: [table.id, table.createdAt] }),
-    };
-  },
-);
+export const document = pgTable('Document', {
+  id: uuid('id').notNull().defaultRandom(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  title: text('title').notNull(),
+  content: text('content').notNull(),
+  kind: varchar('kind', { enum: ['text', 'code', 'image', 'sheet'] }).notNull().default('text'),
+  chatId: uuid('chatId').references(() => chat.id, { onDelete: 'set null' }),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.id, table.createdAt] }),
+}));
 
 export type Document = InferSelectModel<typeof document>;
+
+export const documentAccess = pgTable('DocumentAccess', {
+  documentId: uuid('documentId').notNull(),
+  documentCreatedAt: timestamp('documentCreatedAt').notNull(),
+  userId: uuid('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  role: varchar('role', { enum: ['owner', 'editor', 'viewer'] }).notNull().default('viewer'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.documentId, table.documentCreatedAt, table.userId] }),
+  documentFk: foreignKey({
+    columns: [table.documentId, table.documentCreatedAt],
+    foreignColumns: [document.id, document.createdAt],
+  }).onDelete('cascade'),
+}));
+
+export type DocumentAccess = InferSelectModel<typeof documentAccess>;
 
 export const suggestion = pgTable(
   'Suggestion',
@@ -154,7 +168,7 @@ export type Suggestion = InferSelectModel<typeof suggestion>;
 export const thread = pgTable('Thread', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
   chatId: uuid('chatId').notNull().references(() => chat.id),
-  name: varchar('name', { length: 128 }).notNull(), // e.g. “Queens Roofing Co” or “Mazda Dealer NYC”
+  name: varchar('name', { length: 128 }).notNull(), // e.g. "Queens Roofing Co" or "Mazda Dealer NYC"
   participantEmail: varchar('participantEmail', { length: 128 }), // optional, for external party
   status: varchar('status', { enum: ['awaiting_reply', 'replied', 'closed'] })
     .notNull()

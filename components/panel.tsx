@@ -30,7 +30,6 @@ const PANEL_TRANSITION_DURATION = 0.3; // Animation duration
 
 // Max widths for expanded panels (in px)
 const SIDEBAR_MAX_WIDTH = '250px'; // Maximum width for expanded sidebars
-const CONTENT_MIN_WIDTH = '400px'; // Minimum width for content panels
 
 interface PanelProps {
   type: PanelType;
@@ -42,9 +41,64 @@ interface PanelProps {
   collapsedIcon: React.ReactNode;
   // Whether this panel is a sidebar (true) or content panel (false)
   isSidebar?: boolean;
+  // Which side of the screen the panel should be on
+  side?: 'left' | 'right';
   // Optional user prop for showing avatar in collapsed state
   user?: any;
 }
+
+// Calculate width based on panel configuration
+const getWidth = (
+  isCollapsed: boolean, 
+  isSidebar: boolean, 
+  isMobile: boolean, 
+  activeMobilePanel: PanelType | null, 
+  panel: PanelType,
+  visiblePanels: PanelType[],
+  getPanelState: (panel: PanelType) => PanelState,
+  getPanelCategory: (panel: PanelType) => 'sidebar' | 'content'
+) => {
+  // Collapsed panels always have the same fixed width
+  if (isCollapsed) return PANEL_WIDTH_COLLAPSED;
+
+  // Count collapsed panels and expanded sidebars
+  const collapsedPanelsCount = visiblePanels.filter(p => getPanelState(p) === 'collapsed').length;
+  const expandedSidebarsCount = visiblePanels.filter(p => 
+    getPanelCategory(p) === 'sidebar' && 
+    getPanelState(p) === 'expanded'
+  ).length;
+  const expandedContentPanelsCount = visiblePanels.filter(p => 
+    getPanelCategory(p) === 'content' && 
+    getPanelState(p) === 'expanded'
+  ).length;
+
+  // Calculate total width taken by collapsed panels
+  const totalCollapsedWidth = `${collapsedPanelsCount * 3}rem`;
+
+  // For mobile
+  if (isMobile) {
+    if (activeMobilePanel === panel) {
+      // Active panel takes full width minus collapsed panels, no max-width constraint
+      return `calc(100vw - ${totalCollapsedWidth})`;
+    }
+    return PANEL_WIDTH_COLLAPSED;
+  }
+
+  // For desktop
+  // Calculate total width taken by expanded sidebars (only used in desktop mode)
+  const totalSidebarWidth = `${expandedSidebarsCount * 250}px`;
+  
+  if (isSidebar) {
+    return SIDEBAR_MAX_WIDTH;
+  } else {
+    // For content panels, divide remaining space evenly
+    if (expandedContentPanelsCount > 0) {
+      return `calc((100vw - ${totalCollapsedWidth} - ${totalSidebarWidth}) / ${expandedContentPanelsCount})`;
+    }
+    // Fallback if no content panels are expanded
+    return `calc(100vw - ${totalCollapsedWidth} - ${totalSidebarWidth})`;
+  }
+};
 
 export function Panel({ 
   type, 
@@ -53,14 +107,14 @@ export function Panel({
   toggleLabel, 
   children,
   collapsedIcon,
-  isSidebar = type.includes('sidebar'), // Default based on panel type
+  isSidebar = type.includes('sidebar'),
   user,
 }: PanelProps) {
   const { chats, threads, currentChat, fetchThreads, setCurrentChat, fetchChatMessages } = useChatStore();
   const router = useRouter();
   const params = useParams();
   const { selectedThreadId, setSelectedThreadId, setThreads: setNavigationThreads } = useNavigation();
-  const { isPanelVisible, visiblePanels, getPanelState, showPanel, getPanelCategory } = usePanel();
+  const { isPanelVisible, visiblePanels, getPanelState, showPanel, getPanelCategory, isMobile, activeMobilePanel } = usePanel();
   const { setTheme, theme } = useTheme();
   const isVisible = isPanelVisible(type);
   const panelState = getPanelState(type);
@@ -78,7 +132,7 @@ export function Panel({
 
   // Sync threads with navigation context
   useEffect(() => {
-    if (type === 'threads-sidebar' && threads) {
+    if (type === 'threads-sidebar' && threads && Array.isArray(threads)) {
       const navigationThreads = threads.map(thread => ({
         id: thread.id,
         name: thread.name,
@@ -124,31 +178,6 @@ export function Panel({
     return { expandedSidebars, expandedContentPanels, collapsedCount };
   };
 
-  // Calculate width based on panel configuration
-  const getWidth = () => {
-    // Collapsed panels always have the same fixed width
-    if (isCollapsed) return PANEL_WIDTH_COLLAPSED;
-
-    const { expandedSidebars, expandedContentPanels, collapsedCount } = countPanels();
-    
-    if (isSidebar) {
-      // For sidebar panels, use a fixed width
-      return SIDEBAR_MAX_WIDTH;
-    } else {
-      // For content panels, calculate based on available space
-      const totalCollapsedWidth = `${collapsedCount * 3}rem`;
-      const totalSidebarWidth = `${expandedSidebars * parseInt(SIDEBAR_MAX_WIDTH, 10)}px`;
-      
-      if (expandedContentPanels === 1) {
-        // Only this content panel is expanded
-        return `calc(100vw - ${totalCollapsedWidth} - ${totalSidebarWidth})`;
-      } else {
-        // Multiple content panels, divide evenly
-        return `calc((100vw - ${totalCollapsedWidth} - ${totalSidebarWidth}) / ${expandedContentPanels})`;
-      }
-    }
-  };
-
   const handleNewChat = () => {
     setCurrentChat(null);
     if (panelState === 'collapsed') {
@@ -177,11 +206,11 @@ export function Panel({
         data-panel={type}
         initial={{ 
           opacity: 0.8, 
-          width: isCollapsed ? PANEL_WIDTH_COLLAPSED : getWidth() 
+          width: getWidth(isCollapsed, isSidebar, isMobile, activeMobilePanel, type, visiblePanels, getPanelState, getPanelCategory)
         }}
         animate={{ 
           opacity: 1,
-          width: isCollapsed ? PANEL_WIDTH_COLLAPSED : getWidth()
+          width: getWidth(isCollapsed, isSidebar, isMobile, activeMobilePanel, type, visiblePanels, getPanelState, getPanelCategory)
         }}
         exit={{ opacity: 0 }}
         transition={{ 
@@ -196,7 +225,7 @@ export function Panel({
         )}
         style={{ 
           boxSizing: 'border-box',
-          width: isCollapsed ? PANEL_WIDTH_COLLAPSED : getWidth(),
+          width: getWidth(isCollapsed, isSidebar, isMobile, activeMobilePanel, type, visiblePanels, getPanelState, getPanelCategory),
           flexShrink: 0,
           overflow: 'hidden'
         }}
@@ -239,7 +268,7 @@ export function Panel({
               {type === 'chat-sidebar' && (
                 <div className="flex flex-col gap-2 max-h-[40vh] overflow-y-auto scrollbar-hide">
                   {chats.slice(0, 5).map((chat) => (
-                    <Tooltip key={chat.id}>
+                    <Tooltip key={`chat-${chat.id}`}>
                       <TooltipTrigger asChild>
                         <Button
                           variant="ghost"
@@ -262,10 +291,10 @@ export function Panel({
               )}
 
               {/* Thread Icons - Only for threads sidebar */}
-              {type === 'threads-sidebar' && currentChat?.id && (
+              {type === 'threads-sidebar' && currentChat?.id && threads && Array.isArray(threads) && (
                 <div className="flex flex-col gap-2 max-h-[40vh] overflow-y-auto scrollbar-hide">
-                  {threads?.map((thread: Thread) => (
-                    <Tooltip key={thread.id}>
+                  {threads.map((thread: Thread) => (
+                    <Tooltip key={`thread-${thread.id}`}>
                       <TooltipTrigger asChild>
                         <Button
                           variant="ghost"

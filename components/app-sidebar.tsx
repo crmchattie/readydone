@@ -135,7 +135,6 @@ export function AppSidebar({ user }: { user: User | undefined }) {
             {/* Chat history in collapsed view */}
             <div className="flex-1 overflow-hidden my-4">
               <SidebarHistory 
-                user={user} 
                 chats={chats}
                 isLoading={isLoadingChats}
                 onSelectChat={handleSelectChat}
@@ -198,7 +197,6 @@ export function AppSidebar({ user }: { user: User | undefined }) {
             </SidebarHeader>
             <SidebarContent className="sidebar-history-wrapper">
               <SidebarHistory 
-                user={user}
                 chats={chats}
                 isLoading={isLoadingChats}
                 onSelectChat={handleSelectChat}

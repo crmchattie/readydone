@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { Session } from 'next-auth';
 import { DataStreamWriter, streamObject, tool } from 'ai';
-import { getDocumentById, saveSuggestions } from '@/lib/db/queries';
+import { getDocumentById, saveSuggestions, getDocumentAccess } from '@/lib/db/queries';
 import { Suggestion } from '@/lib/db/schema';
 import { generateUUID } from '@/lib/utils';
 import { myProvider } from '../providers';
@@ -28,6 +28,23 @@ export const requestSuggestions = ({
       if (!document || !document.content) {
         return {
           error: 'Document not found',
+        };
+      }
+
+      // Check if user has edit access to the document
+      const access = await getDocumentAccess({ 
+        documentId: document.id, 
+        documentCreatedAt: document.createdAt 
+      });
+      
+      const userAccess = access.find(a => 
+        a.user.id === session.user?.id && 
+        ['owner', 'editor'].includes(a.role)
+      );
+
+      if (!userAccess) {
+        return {
+          error: 'Unauthorized to request suggestions for this document',
         };
       }
 
@@ -66,16 +83,16 @@ export const requestSuggestions = ({
         suggestions.push(suggestion);
       }
 
-      if (session.user?.id) {
-        const userId = session.user.id;
-
+      const userId = session.user?.id;
+      if (userId) {
         await saveSuggestions({
-          suggestions: suggestions.map((suggestion) => ({
+          suggestions: suggestions.map(suggestion => ({
             ...suggestion,
             userId,
             createdAt: new Date(),
             documentCreatedAt: document.createdAt,
           })),
+          userId,
         });
       }
 

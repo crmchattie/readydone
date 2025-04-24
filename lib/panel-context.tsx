@@ -1,6 +1,8 @@
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { useIsMobile } from '../hooks/use-mobile';
+import * as React from 'react';
 
 // Define the different panel types
 export type PanelType = 'chat-sidebar' | 'chat' | 'threads-sidebar' | 'thread-chat';
@@ -32,6 +34,9 @@ type PanelContextType = {
   allPanels: PanelType[];
   // Function to determine if a panel is a sidebar
   getPanelCategory: (panel: PanelType) => PanelCategory;
+  // Mobile-specific properties
+  isMobile: boolean;
+  activeMobilePanel: PanelType | null;
 };
 
 // Helper to categorize panels
@@ -45,270 +50,141 @@ const ALL_PANELS: PanelType[] = ['chat-sidebar', 'chat', 'threads-sidebar', 'thr
 const PanelContext = createContext<PanelContextType | null>(null);
 
 export function PanelProvider({ children }: { children: ReactNode }) {
-  // By default, show all four panels - each sidebar is expanded, content panels collapsed
-  const [visiblePanels, setVisiblePanels] = useState<PanelType[]>(ALL_PANELS);
-  
+  const isMobile = useIsMobile();
+  const [activeMobilePanel, setActiveMobilePanel] = useState<PanelType | null>(null);
   const [panelStates, setPanelStates] = useState<Record<PanelType, PanelState>>({
     'chat-sidebar': 'expanded',
     'chat': 'expanded',
     'threads-sidebar': 'collapsed',
     'thread-chat': 'collapsed'
   });
-
-  // Debug output to console
-  useEffect(() => {
-    console.log('Visible panels:', visiblePanels);
-    console.log('Panel states:', panelStates);
-  }, [visiblePanels, panelStates]);
-
-  // Ensure at least one content panel is always expanded
-  useEffect(() => {
-    const expandedContentPanels = visiblePanels.filter(panel => {
-      const isContent = getPanelCategory(panel) === 'content';
-      const isExpanded = panelStates[panel] === 'expanded';
-      return isContent && isExpanded;
-    });
+  
+  // Derive effective panel states based on mobile/desktop mode
+  const effectivePanelStates = React.useMemo(() => {
+    if (!isMobile) return panelStates;
     
-    // If no content panels are expanded, expand the chat panel as default
-    if (expandedContentPanels.length === 0) {
-      console.log('No content panels expanded, expanding chat panel');
-      
-      setPanelStates(prev => ({
-        ...prev,
-        'chat': 'expanded'
-      }));
+    // In mobile, all panels are collapsed except the active one
+    return ALL_PANELS.reduce((acc, panel) => ({
+      ...acc,
+      [panel]: panel === activeMobilePanel ? 'expanded' : 'collapsed'
+    }), {} as Record<PanelType, PanelState>);
+  }, [isMobile, activeMobilePanel, panelStates]);
+
+  // Handle transition between mobile and desktop
+  useEffect(() => {
+    if (isMobile && activeMobilePanel === null) {
+      // Only set to chat if no panel is currently active
+      setActiveMobilePanel('chat');
     }
-  }, [visiblePanels, panelStates]);
+  }, [isMobile, activeMobilePanel]);
 
-  // Always keep all panels visible
-  useEffect(() => {
-    // Ensure all panels are in the visible panels array
-    const missingPanels = ALL_PANELS.filter(panel => !visiblePanels.includes(panel));
-    
-    if (missingPanels.length > 0) {
-      setVisiblePanels(prev => [...prev, ...missingPanels]);
-      
-      // Set any newly added panels to collapsed state
-      setPanelStates(prev => {
-        const newStates = { ...prev };
-        missingPanels.forEach(panel => {
-          newStates[panel] = 'collapsed';
-        });
-        return newStates;
-      });
-    }
-  }, [visiblePanels]);
-
-  // Listen for show-thread-panels events to show thread panels
-  useEffect(() => {
-    const handleShowThreadPanels = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      const threadId = customEvent.detail?.threadId;
-      
-      console.log('Showing thread panels for thread:', threadId);
-      
-      // Ensure both thread panels are visible and expanded
-      setVisiblePanels(prev => {
-        const newPanels = [...prev];
-        if (!newPanels.includes('threads-sidebar')) newPanels.push('threads-sidebar');
-        if (!newPanels.includes('thread-chat')) newPanels.push('thread-chat');
-        return newPanels;
-      });
-      
-      // Make both thread panels expanded
-      setPanelStates(prevStates => ({
-        ...prevStates,
-        'threads-sidebar': 'expanded',
-        'thread-chat': 'expanded',
-        // Collapse chat panel to make room but keep chat-sidebar as is
-        'chat': 'collapsed',
-      }));
-    };
-    
-    window.addEventListener('show-thread-panels', handleShowThreadPanels);
-    
-    return () => {
-      window.removeEventListener('show-thread-panels', handleShowThreadPanels);
-    };
-  }, []);
-
-  // Function to toggle a panel's visibility (show/hide)
-  const togglePanel = (panel: PanelType) => {
-    console.log(`Toggling panel ${panel} visibility`);
-    
-    // We don't actually hide panels anymore, just collapse them
-    if (visiblePanels.includes(panel)) {
-      toggleCollapsed(panel);
+  // Modified showPanel function to handle mobile
+  const showPanel = React.useCallback((panel: PanelType) => {
+    if (isMobile) {
+      // In mobile, showing a panel makes it the active panel
+      // Only update if it's different from current active panel
+      if (activeMobilePanel !== panel) {
+        setActiveMobilePanel(panel);
+      }
     } else {
-      // If panel not visible, add it and set to expanded
-      setVisiblePanels(prev => [...prev, panel]);
-      setPanelStates(prevStates => ({
-        ...prevStates,
-        [panel]: 'expanded'
-      }));
-    }
-  };
-
-  // Function to toggle a panel's collapsed state
-  const toggleCollapsed = (panel: PanelType) => {
-    console.log(`Toggling panel ${panel} collapsed state`, {
-      currentState: panelStates[panel],
-      allPanelStates: { ...panelStates }
-    });
-    
-    // Special handling for content panels - ensure at least one is expanded
-    if (getPanelCategory(panel) === 'content' && panelStates[panel] === 'expanded') {
-      // Check if there's another expanded content panel before allowing this one to collapse
-      const otherContentPanels = ALL_PANELS.filter(p => 
-        getPanelCategory(p) === 'content' && p !== panel
-      );
-      
-      const anotherContentPanelExpanded = otherContentPanels.some(p => 
-        visiblePanels.includes(p) && panelStates[p] === 'expanded'
-      );
-      
-      // If no other content panel is expanded, don't allow this one to collapse
-      if (!anotherContentPanelExpanded) {
-        console.log(`Cannot collapse ${panel} because it's the only expanded content panel`);
-        return;
-      }
-    }
-    
-    // Set the new state - always create a new object first
-    setPanelStates(prev => {
-      // Determine the new panel state
-      const newPanelState: PanelState = prev[panel] === 'expanded' ? 'collapsed' : 'expanded';
-      
-      console.log(`${prev[panel] === 'expanded' ? 'Collapsing' : 'Expanding'} panel ${panel}`);
-      
-      // Create a completely new state object
-      const newState = { ...prev, [panel]: newPanelState };
-      
-      return newState;
-    });
-  };
-
-  // Function to directly set a panel's state (expanded or collapsed)
-  const setPanelState = (panel: PanelType, state: PanelState) => {
-    console.log(`Directly setting panel ${panel} to ${state}`, {
-      currentState: panelStates[panel],
-      requestedState: state
-    });
-    
-    // Don't allow setting content panels to collapsed if they're the only expanded one
-    if (state === 'collapsed' && getPanelCategory(panel) === 'content' && panelStates[panel] === 'expanded') {
-      const otherContentPanels = ALL_PANELS.filter(p => 
-        getPanelCategory(p) === 'content' && p !== panel
-      );
-      
-      const anotherContentPanelExpanded = otherContentPanels.some(p => 
-        visiblePanels.includes(p) && panelStates[p] === 'expanded'
-      );
-      
-      if (!anotherContentPanelExpanded) {
-        console.log(`Cannot set ${panel} to collapsed because it's the only expanded content panel`);
-        return;
-      }
-    }
-    
-    // Update the panel state
-    setPanelStates(prev => {
-      // No-op if state is the same
-      if (prev[panel] === state) {
-        console.log(`State is already ${state}, no update needed`);
-        return prev;
-      }
-      
-      console.log(`Updating panel state for ${panel} from ${prev[panel]} to ${state}`);
-      
-      // Create a completely new state object
-      return { ...prev, [panel]: state };
-    });
-
-    // If panel was hidden but now expanded or collapsed, also add it to visible panels
-    if (!visiblePanels.includes(panel)) {
-      setVisiblePanels(prev => [...prev, panel]);
-    }
-  };
-
-  // Function to show a specific panel (and hide others if needed)
-  const showPanel = (panel: PanelType) => {
-    console.log(`Showing panel ${panel}`);
-    
-    // Special handling for thread-related panels
-    if (panel === 'thread-chat' || panel === 'threads-sidebar') {
-      // If showing thread-chat, also ensure threads-sidebar is visible (and vice versa)
-      const otherThreadPanel = panel === 'thread-chat' ? 'threads-sidebar' : 'thread-chat';
-      
-      // Update panel states in a single operation
-      setPanelStates(prevStates => ({
-        ...prevStates,
-        [panel]: 'expanded',
-        [otherThreadPanel]: prevStates[otherThreadPanel], // Keep other panel's state
-        'chat': 'collapsed', // Collapse chat panel to make room
-      }));
-      
-      // Ensure both panels are visible
-      setVisiblePanels(prev => {
-        const newPanels = Array.from(new Set([...prev, panel, otherThreadPanel])) as PanelType[];
-        return newPanels;
-      });
-      
-      return;
-    }
-    
-    // Normal behavior for non-thread panels
-    setVisiblePanels(prev => {
-      // If panel is already visible, do nothing
-      if (prev.includes(panel)) {
-        // But ensure it's expanded
-        setPanelStates(prevStates => ({
+      // Existing desktop behavior
+      setPanelStates(prevStates => {
+        // No-op if panel is already expanded
+        if (prevStates[panel] === 'expanded') {
+          return prevStates;
+        }
+        
+        return {
           ...prevStates,
           [panel]: 'expanded'
-        }));
-        return prev;
+        };
+      });
+    }
+  }, [isMobile, activeMobilePanel]);
+
+  // Modified toggleCollapsed for mobile
+  const toggleCollapsed = React.useCallback((panel: PanelType) => {
+    if (isMobile) {
+      // In mobile, toggling works like showing/hiding
+      if (activeMobilePanel !== panel) {
+        setActiveMobilePanel(panel);
       }
-      
-      // Add the panel to visible panels
-      return [...prev, panel];
-    });
-  };
+    } else {
+      // Existing desktop behavior
+      setPanelStates(prev => {
+        const newPanelState: PanelState = prev[panel] === 'expanded' ? 'collapsed' : 'expanded';
+        
+        // Prevent collapsing the last expanded content panel
+        if (newPanelState === 'collapsed' && getPanelCategory(panel) === 'content') {
+          const expandedContentPanels = ALL_PANELS.filter(p => 
+            getPanelCategory(p) === 'content' && 
+            (p === panel ? newPanelState : prev[p]) === 'expanded'
+          );
+          
+          if (expandedContentPanels.length === 0) {
+            return prev;
+          }
+        }
+        
+        return { ...prev, [panel]: newPanelState };
+      });
+    }
+  }, [isMobile, activeMobilePanel]);
+
+  // Keep all panels in visiblePanels array
+  const [visiblePanels] = useState<PanelType[]>(ALL_PANELS);
+
+  // Add back togglePanel function
+  const togglePanel = React.useCallback((panel: PanelType) => {
+    toggleCollapsed(panel);
+  }, [toggleCollapsed]);
+
+  // Add back setPanelState function
+  const setPanelState = React.useCallback((panel: PanelType, state: PanelState) => {
+    setPanelStates(prev => ({ ...prev, [panel]: state }));
+  }, []);
 
   // Check if a panel is visible
-  const isPanelVisible = (panel: PanelType) => {
+  const isPanelVisible = React.useCallback((panel: PanelType) => {
     return visiblePanels.includes(panel);
-  };
-
-  // Get the current state of a panel
-  const getPanelState = (panel: PanelType) => {
-    return isPanelVisible(panel) ? panelStates[panel] : 'hidden';
-  };
-
-  // Debug panel states whenever they change - simplified
-  useEffect(() => {
-    console.log('Panel states:', { ...panelStates });
-  }, [panelStates]);
-  
-  // Debug visible panels whenever they change - simplified
-  useEffect(() => {
-    console.log('Visible panels:', [...visiblePanels]);
   }, [visiblePanels]);
 
+  // Get the current state of a panel
+  const getPanelState = React.useCallback((panel: PanelType) => {
+    return effectivePanelStates[panel] || 'hidden';
+  }, [effectivePanelStates]);
+
+  const contextValue = React.useMemo<PanelContextType>(
+    () => ({
+      visiblePanels,
+      panelStates: effectivePanelStates,
+      togglePanel,
+      toggleCollapsed,
+      setPanelState,
+      showPanel,
+      isPanelVisible,
+      getPanelState,
+      allPanels: ALL_PANELS,
+      getPanelCategory,
+      isMobile,
+      activeMobilePanel,
+    }),
+    [
+      visiblePanels,
+      effectivePanelStates,
+      toggleCollapsed,
+      showPanel,
+      isPanelVisible,
+      getPanelState,
+      isMobile,
+      activeMobilePanel,
+      setPanelState,
+      togglePanel
+    ]
+  );
+
   return (
-    <PanelContext.Provider
-      value={{
-        visiblePanels,
-        panelStates,
-        togglePanel,
-        toggleCollapsed,
-        setPanelState,
-        showPanel,
-        isPanelVisible,
-        getPanelState,
-        allPanels: ALL_PANELS,
-        getPanelCategory
-      }}
-    >
+    <PanelContext.Provider value={contextValue}>
       {children}
     </PanelContext.Provider>
   );

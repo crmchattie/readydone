@@ -31,9 +31,14 @@ import {
   type Thread,
   type ThreadMessage,
   userOAuthCredentials,
-  type UserOAuthCredentials
+  type UserOAuthCredentials,
+  chatParticipant,
+  type ChatParticipant,
+  documentAccess,
+  type DocumentAccess,
 } from './schema';
 import type { ArtifactKind } from '@/components/artifact';
+import { generateUUID } from '../utils';
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -74,11 +79,17 @@ export async function saveChat({
   title: string;
 }) {
   try {
-    return await db.insert(chat).values({
+    await db.insert(chat).values({
       id,
       createdAt: new Date(),
-      userId,
       title,
+    });
+
+    // Add the creator as an owner
+    return await addChatParticipant({
+      chatId: id,
+      userId,
+      role: 'owner',
     });
   } catch (error) {
     console.error('Failed to save chat in database');
@@ -114,17 +125,23 @@ export async function getChatsByUserId({
 
     const query = (whereCondition?: SQL<any>) =>
       db
-        .select()
+        .select({
+          chat: chat,
+          role: chatParticipant.role,
+        })
         .from(chat)
-        .where(
-          whereCondition
-            ? and(whereCondition, eq(chat.userId, id))
-            : eq(chat.userId, id),
+        .innerJoin(
+          chatParticipant,
+          and(
+            eq(chat.id, chatParticipant.chatId),
+            eq(chatParticipant.userId, id),
+          ),
         )
+        .where(whereCondition)
         .orderBy(desc(chat.createdAt))
         .limit(extendedLimit);
 
-    let filteredChats: Array<Chat> = [];
+    let filteredChats: Array<{ chat: Chat; role: string }> = [];
 
     if (startingAfter) {
       const [selectedChat] = await db
@@ -249,25 +266,37 @@ export async function saveDocument({
   kind,
   content,
   userId,
+  chatId,
 }: {
   id: string;
   title: string;
   kind: ArtifactKind;
   content: string;
   userId: string;
+  chatId?: string;
 }) {
   try {
-    return await db
+    const doc = await db
       .insert(document)
       .values({
         id,
         title,
         kind,
         content,
-        userId,
+        chatId,
         createdAt: new Date(),
       })
       .returning();
+
+    // Add the creator as an owner
+    await addDocumentAccess({
+      documentId: doc[0].id,
+      documentCreatedAt: doc[0].createdAt,
+      userId,
+      role: 'owner',
+    });
+
+    return doc;
   } catch (error) {
     console.error('Failed to save document in database');
     throw error;
@@ -335,11 +364,47 @@ export async function deleteDocumentsByIdAfterTimestamp({
 
 export async function saveSuggestions({
   suggestions,
+  userId,
 }: {
-  suggestions: Array<Suggestion>;
+  suggestions: Array<Omit<Suggestion, 'id' | 'createdAt'>>;
+  userId: string;
 }) {
   try {
-    return await db.insert(suggestion).values(suggestions);
+    // Verify user has access to the documents
+    const documentIds = [...new Set(suggestions.map(s => s.documentId))];
+    const documentCreatedAts = [...new Set(suggestions.map(s => s.documentCreatedAt))];
+    
+    const access = await Promise.all(
+      documentIds.map((docId, index) =>
+        db
+          .select()
+          .from(documentAccess)
+          .where(
+            and(
+              eq(documentAccess.documentId, docId),
+              eq(documentAccess.documentCreatedAt, documentCreatedAts[index]),
+              eq(documentAccess.userId, userId),
+              inArray(documentAccess.role, ['owner', 'editor']),
+            ),
+          )
+          .limit(1),
+      ),
+    );
+
+    // Check if user has access to all documents
+    if (access.some(result => result.length === 0)) {
+      throw new Error('User does not have permission to create suggestions for some documents');
+    }
+
+    // Save suggestions
+    return await db.insert(suggestion).values(
+      suggestions.map(s => ({
+        ...s,
+        id: generateUUID(),
+        userId,
+        createdAt: new Date(),
+      })),
+    );
   } catch (error) {
     console.error('Failed to save suggestions in database');
     throw error;
@@ -348,18 +413,42 @@ export async function saveSuggestions({
 
 export async function getSuggestionsByDocumentId({
   documentId,
+  documentCreatedAt,
+  userId,
 }: {
   documentId: string;
+  documentCreatedAt: Date;
+  userId: string;
 }) {
   try {
+    // Check if user has access to the document
+    const [access] = await db
+      .select()
+      .from(documentAccess)
+      .where(
+        and(
+          eq(documentAccess.documentId, documentId),
+          eq(documentAccess.documentCreatedAt, documentCreatedAt),
+          eq(documentAccess.userId, userId),
+        ),
+      )
+      .limit(1);
+
+    if (!access) {
+      throw new Error('User does not have permission to view suggestions for this document');
+    }
+
     return await db
       .select()
       .from(suggestion)
-      .where(and(eq(suggestion.documentId, documentId)));
+      .where(
+        and(
+          eq(suggestion.documentId, documentId),
+          eq(suggestion.documentCreatedAt, documentCreatedAt),
+        ),
+      );
   } catch (error) {
-    console.error(
-      'Failed to get suggestions by document version from database',
-    );
+    console.error('Failed to get suggestions by document from database');
     throw error;
   }
 }
@@ -614,6 +703,202 @@ export async function getUserOAuthCredentials({
     return result[0];
   } catch (error) {
     console.error('Failed to get OAuth credentials from database');
+    throw error;
+  }
+}
+
+// New functions for chat participants
+export async function addChatParticipant({
+  chatId,
+  userId,
+  role = 'viewer',
+}: {
+  chatId: string;
+  userId: string;
+  role?: 'owner' | 'editor' | 'viewer';
+}) {
+  try {
+    return await db.insert(chatParticipant).values({
+      chatId,
+      userId,
+      role,
+      createdAt: new Date(),
+    });
+  } catch (error) {
+    console.error('Failed to add chat participant to database');
+    throw error;
+  }
+}
+
+export async function getChatParticipants({ chatId }: { chatId: string }) {
+  try {
+    return await db
+      .select({
+        participant: user,
+        role: chatParticipant.role,
+        joinedAt: chatParticipant.createdAt,
+      })
+      .from(chatParticipant)
+      .innerJoin(user, eq(chatParticipant.userId, user.id))
+      .where(eq(chatParticipant.chatId, chatId))
+      .orderBy(asc(chatParticipant.createdAt));
+  } catch (error) {
+    console.error('Failed to get chat participants from database');
+    throw error;
+  }
+}
+
+export async function updateChatParticipantRole({
+  chatId,
+  userId,
+  role,
+}: {
+  chatId: string;
+  userId: string;
+  role: 'owner' | 'editor' | 'viewer';
+}) {
+  try {
+    return await db
+      .update(chatParticipant)
+      .set({ role })
+      .where(
+        and(
+          eq(chatParticipant.chatId, chatId),
+          eq(chatParticipant.userId, userId),
+        ),
+      );
+  } catch (error) {
+    console.error('Failed to update chat participant role in database');
+    throw error;
+  }
+}
+
+export async function removeChatParticipant({
+  chatId,
+  userId,
+}: {
+  chatId: string;
+  userId: string;
+}) {
+  try {
+    return await db
+      .delete(chatParticipant)
+      .where(
+        and(
+          eq(chatParticipant.chatId, chatId),
+          eq(chatParticipant.userId, userId),
+        ),
+      );
+  } catch (error) {
+    console.error('Failed to remove chat participant from database');
+    throw error;
+  }
+}
+
+// New functions for document access
+export async function addDocumentAccess({
+  documentId,
+  documentCreatedAt,
+  userId,
+  role = 'viewer',
+}: {
+  documentId: string;
+  documentCreatedAt: Date;
+  userId: string;
+  role?: 'owner' | 'editor' | 'viewer';
+}) {
+  try {
+    return await db.insert(documentAccess).values({
+      documentId,
+      documentCreatedAt,
+      userId,
+      role,
+      createdAt: new Date(),
+    });
+  } catch (error) {
+    console.error('Failed to add document access to database');
+    throw error;
+  }
+}
+
+export async function getDocumentAccess({
+  documentId,
+  documentCreatedAt,
+}: {
+  documentId: string;
+  documentCreatedAt: Date;
+}) {
+  try {
+    return await db
+      .select({
+        user: user,
+        role: documentAccess.role,
+        grantedAt: documentAccess.createdAt,
+      })
+      .from(documentAccess)
+      .innerJoin(user, eq(documentAccess.userId, user.id))
+      .where(
+        and(
+          eq(documentAccess.documentId, documentId),
+          eq(documentAccess.documentCreatedAt, documentCreatedAt),
+        ),
+      )
+      .orderBy(asc(documentAccess.createdAt));
+  } catch (error) {
+    console.error('Failed to get document access from database');
+    throw error;
+  }
+}
+
+export async function updateDocumentAccessRole({
+  documentId,
+  documentCreatedAt,
+  userId,
+  role,
+}: {
+  documentId: string;
+  documentCreatedAt: Date;
+  userId: string;
+  role: 'owner' | 'editor' | 'viewer';
+}) {
+  try {
+    return await db
+      .update(documentAccess)
+      .set({ role })
+      .where(
+        and(
+          eq(documentAccess.documentId, documentId),
+          eq(documentAccess.documentCreatedAt, documentCreatedAt),
+          eq(documentAccess.userId, userId),
+        ),
+      );
+  } catch (error) {
+    console.error('Failed to update document access role in database');
+    throw error;
+  }
+}
+
+export async function removeDocumentAccess({
+  documentId,
+  documentCreatedAt,
+  userId,
+}: {
+  documentId: string;
+  documentCreatedAt: Date;
+  userId: string;
+}) {
+  try {
+    return await db
+      .delete(documentAccess)
+      .where(
+        and(
+          eq(documentAccess.documentId, documentId),
+          eq(documentAccess.documentCreatedAt, documentCreatedAt),
+          eq(documentAccess.userId, userId),
+        ),
+      );
+  } catch (error) {
+    console.error('Failed to remove document access from database');
     throw error;
   }
 }

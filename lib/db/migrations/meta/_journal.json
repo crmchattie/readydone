@@ -50,6 +50,13 @@
       "when": 1745293749526,
       "tag": "0006_outgoing_texas_twister",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1745507334184,
+      "tag": "0007_hot_ultimo",
+      "breakpoints": true
     }
   ]
 }

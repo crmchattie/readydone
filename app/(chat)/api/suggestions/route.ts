@@ -1,12 +1,13 @@
 import { auth } from '@/app/(auth)/auth';
-import { getSuggestionsByDocumentId } from '@/lib/db/queries';
+import { getSuggestionsByDocumentId, getDocumentAccess } from '@/lib/db/queries';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const documentId = searchParams.get('documentId');
+  const documentCreatedAt = searchParams.get('documentCreatedAt');
 
-  if (!documentId) {
-    return new Response('Not Found', { status: 404 });
+  if (!documentId || !documentCreatedAt) {
+    return new Response('Missing required parameters', { status: 400 });
   }
 
   const session = await auth();
@@ -15,19 +16,23 @@ export async function GET(request: Request) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const suggestions = await getSuggestionsByDocumentId({
-    documentId,
+  // Check if user has access to the document
+  const access = await getDocumentAccess({ 
+    documentId, 
+    documentCreatedAt: new Date(documentCreatedAt) 
   });
+  
+  const userAccess = access.find(a => a.user.id === session.user?.id);
 
-  const [suggestion] = suggestions;
-
-  if (!suggestion) {
-    return Response.json([], { status: 200 });
-  }
-
-  if (suggestion.userId !== session.user.id) {
+  if (!userAccess) {
     return new Response('Unauthorized', { status: 401 });
   }
+
+  const suggestions = await getSuggestionsByDocumentId({
+    documentId,
+    documentCreatedAt: new Date(documentCreatedAt),
+    userId: session.user.id!,
+  });
 
   return Response.json(suggestions, { status: 200 });
 }

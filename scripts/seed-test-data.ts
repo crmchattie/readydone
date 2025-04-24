@@ -49,8 +49,15 @@ async function seedTestData() {
       id: chatId,
       createdAt: new Date(),
       title: 'Test Conversation',
-      userId: testUser.id,
       visibility: 'private',
+    });
+
+    // Create chat participant relationship
+    await db.insert(schema.chatParticipant).values({
+      chatId: chatId,
+      userId: testUser.id,
+      role: 'owner',
+      createdAt: new Date(),
     });
 
     // Create some messages in the chat

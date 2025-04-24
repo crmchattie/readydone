@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Chat, Thread, ThreadMessage, User, DBMessage } from '@/lib/db/schema';
+import type { Chat, Thread, ThreadMessage, User, DBMessage, ChatParticipant } from '@/lib/db/schema';
 
 // Generate a random user
 export function generateDummyUser(): User {
@@ -11,13 +11,22 @@ export function generateDummyUser(): User {
 }
 
 // Generate a random chat
-export function generateDummyChat(userId: string, title?: string): Chat {
+export function generateDummyChat(title?: string): Chat {
   return {
     id: uuidv4(),
     createdAt: new Date(),
     title: title || `Chat about ${['travel', 'work', 'technology', 'health'][Math.floor(Math.random() * 4)]}`,
-    userId: userId,
     visibility: Math.random() > 0.3 ? 'private' : 'public',
+  };
+}
+
+// Generate a chat participant
+export function generateDummyChatParticipant(chatId: string, userId: string, role: 'owner' | 'editor' | 'viewer' = 'owner'): ChatParticipant {
+  return {
+    chatId,
+    userId,
+    role,
+    createdAt: new Date(),
   };
 }
 
@@ -39,8 +48,8 @@ export function generateDummyMessage(chatId: string, role: 'user' | 'assistant' 
 
 // Generate a random thread
 export function generateDummyThread(chatId: string, name?: string): Thread {
-  const statuses = ['awaiting_reply', 'replied', 'closed'];
-  const randomStatus = statuses[Math.floor(Math.random() * statuses.length)] as 'awaiting_reply' | 'replied' | 'closed';
+  const statuses = ['awaiting_reply', 'replied', 'closed'] as const;
+  const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
   
   return {
     id: uuidv4(),
@@ -81,7 +90,10 @@ export function generateDummyThreadMessage(threadId: string, role: 'user' | 'ai'
 // Generate complete testing scenario
 export function generateTestingScenario(numThreads = 3, messagesPerThread = 2) {
   const user = generateDummyUser();
-  const chat = generateDummyChat(user.id, 'Test Conversation');
+  const chat = generateDummyChat('Test Conversation');
+  
+  // Create chat participant relationship
+  const chatParticipant = generateDummyChatParticipant(chat.id, user.id, 'owner');
   
   // Create some messages for the main chat
   const chatMessages = Array(4).fill(null).map((_, i) => 
@@ -112,6 +124,7 @@ export function generateTestingScenario(numThreads = 3, messagesPerThread = 2) {
   return {
     user,
     chat,
+    chatParticipant,
     chatMessages,
     threads,
     threadMessages,
