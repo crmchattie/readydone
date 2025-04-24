@@ -6,6 +6,7 @@ import { memo } from 'react';
 import type { Vote } from '@/lib/db/schema';
 import equal from 'fast-deep-equal';
 import type { UseChatHelpers } from '@ai-sdk/react';
+import { useChatStore } from '@/lib/stores/chat-store';
 
 interface MessagesProps {
   chatId: string;
@@ -29,13 +30,14 @@ function PureMessages({
 }: MessagesProps) {
   const [messagesContainerRef, messagesEndRef] =
     useScrollToBottom<HTMLDivElement>();
+  const { currentChat } = useChatStore();
 
   return (
     <div
       ref={messagesContainerRef}
       className="flex flex-col min-w-0 gap-6 flex-1 overflow-y-scroll pt-4"
     >
-      {messages.length === 0 && <Greeting />}
+      {messages.length === 0 && !currentChat && <Greeting />}
 
       {messages.map((message, index) => (
         <PreviewMessage
