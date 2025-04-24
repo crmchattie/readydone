@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Button } from './ui/button';
 import { memo } from 'react';
 import { UseChatHelpers } from '@ai-sdk/react';
+import { Car, Shield, Wrench, CalendarDays } from 'lucide-react';
 
 interface SuggestedActionsProps {
   chatId: string;
@@ -13,58 +14,68 @@ interface SuggestedActionsProps {
 function PureSuggestedActions({ chatId, append }: SuggestedActionsProps) {
   const suggestedActions = [
     {
-      title: 'What are the advantages',
-      label: 'of using Next.js?',
-      action: 'What are the advantages of using Next.js?',
+      title: 'Purchase a Car',
+      description: 'Find your ideal car by letting AI contact local dealerships for availability and pricing, saving you time and effort.',
+      action: 'I need help finding and purchasing a car. Can you help me search local dealerships and get pricing information?',
+      icon: Car,
     },
     {
-      title: 'Write code to',
-      label: `demonstrate djikstra's algorithm`,
-      action: `Write code to demonstrate djikstra's algorithm`,
+      title: 'Shop for Insurance',
+      description: 'Compare insurance quotes effortlessly as AI reaches out to providers and organizes their responses for easy review.',
+      action: 'I need help finding insurance coverage. Can you help me get and compare quotes from different providers?',
+      icon: Shield,
     },
     {
-      title: 'Help me write an essay',
-      label: `about silicon valley`,
-      action: `Help me write an essay about silicon valley`,
+      title: 'Get Estimates for a Home Project',
+      description: 'Let AI find and contact local contractors for your home project, gathering estimates and organizing responses.',
+      action: 'I need help finding contractors for a home project. Can you help me get and compare estimates?',
+      icon: Wrench,
     },
     {
-      title: 'What is the weather',
-      label: 'in San Francisco?',
-      action: 'What is the weather in San Francisco?',
+      title: 'Plan an Event',
+      description: 'Streamline your event planning as AI contacts venues and vendors, collecting pricing and availability in one place.',
+      action: 'I need help planning an event. Can you help me find and compare venues, caterers, and other vendors?',
+      icon: CalendarDays,
     },
   ];
 
   return (
     <div
       data-testid="suggested-actions"
-      className="grid sm:grid-cols-2 gap-2 w-full"
+      className="grid sm:grid-cols-2 gap-4 w-full"
     >
-      {suggestedActions.map((suggestedAction, index) => (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-          transition={{ delay: 0.05 * index }}
-          key={`suggested-action-${suggestedAction.title}-${index}`}
-          className={index > 1 ? 'hidden sm:block' : 'block'}
-        >
-          <Button
-            variant="ghost"
-            onClick={async () => {
-              append({
-                role: 'user',
-                content: suggestedAction.action,
-              });
-            }}
-            className="text-left border rounded-xl px-4 py-3.5 text-sm flex-1 gap-1 sm:flex-col w-full h-auto justify-start items-start"
+      {suggestedActions.map((suggestedAction, index) => {
+        const Icon = suggestedAction.icon;
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ delay: 0.05 * index }}
+            key={`suggested-action-${suggestedAction.title}-${index}`}
+            className={index > 1 ? 'hidden sm:block' : 'block'}
           >
-            <span className="font-medium">{suggestedAction.title}</span>
-            <span className="text-muted-foreground">
-              {suggestedAction.label}
-            </span>
-          </Button>
-        </motion.div>
-      ))}
+            <Button
+              variant="ghost"
+              onClick={async () => {
+                append({
+                  role: 'user',
+                  content: suggestedAction.action,
+                });
+              }}
+              className="text-left border rounded-xl p-4 text-sm flex flex-col w-full h-auto justify-start items-start gap-3 hover:bg-accent/50 transition-colors"
+            >
+              <div className="flex items-center gap-2 w-full">
+                <Icon className="size-5 text-primary" />
+                <span className="font-semibold text-base">{suggestedAction.title}</span>
+              </div>
+              <p className="text-muted-foreground text-sm leading-relaxed whitespace-normal break-words">
+                {suggestedAction.description}
+              </p>
+            </Button>
+          </motion.div>
+        );
+      })}
     </div>
   );
 }
