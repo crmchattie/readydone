@@ -16,8 +16,6 @@ export default async function Page() {
     return (
       <>
         <FourPanelLayout
-          chatId={id}
-          initialMessages={[]}
           selectedChatModel={DEFAULT_CHAT_MODEL}
           selectedVisibilityType="private"
           isReadonly={false}
@@ -31,8 +29,6 @@ export default async function Page() {
   return (
     <>
       <FourPanelLayout
-        chatId={id}
-        initialMessages={[]}
         selectedChatModel={modelIdFromCookie.value}
         selectedVisibilityType="private"
         isReadonly={false}
