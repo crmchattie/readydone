@@ -24,7 +24,7 @@ export interface ThreadItemProps {
 export function ThreadItem({ thread, isCollapsed = false, onClick }: ThreadItemProps) {
   const { selectedThreadId, setSelectedThreadId } = useNavigation();
   const { showPanel } = usePanel();
-  const isSelected = thread.id === selectedThreadId;
+  const isActive = thread.id === selectedThreadId;
   
   // Format the last message timestamp
   const lastMessageDate = new Date();
@@ -55,7 +55,7 @@ export function ThreadItem({ thread, isCollapsed = false, onClick }: ThreadItemP
     <div
       className={cn(
         "flex flex-col p-3 cursor-pointer border-b hover:bg-muted/50 transition-colors gap-2",
-        isSelected && "bg-muted rounded-md mx-2"
+        isActive && "bg-muted rounded-md mx-2"
       )}
       onClick={handleClick}
     >

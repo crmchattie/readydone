@@ -57,6 +57,20 @@
       "when": 1745507334184,
       "tag": "0007_hot_ultimo",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1745529698209,
+      "tag": "0008_groovy_wiccan",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1745538998042,
+      "tag": "0009_long_mephisto",
+      "breakpoints": true
     }
   ]
 }

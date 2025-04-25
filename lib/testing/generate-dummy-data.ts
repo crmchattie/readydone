@@ -7,6 +7,12 @@ export function generateDummyUser(): User {
     id: uuidv4(),
     email: `user-${Math.floor(Math.random() * 1000)}@example.com`,
     password: null,
+    createdAt: new Date(),
+    fullName: null,
+    usageType: null,
+    gmailConnected: false,
+    referralSource: null,
+    onboardingCompletedAt: null
   };
 }
 
@@ -55,7 +61,8 @@ export function generateDummyThread(chatId: string, name?: string): Thread {
     id: uuidv4(),
     chatId: chatId,
     name: name || `Thread about ${['customer service', 'pricing', 'support', 'information'][Math.floor(Math.random() * 4)]}`,
-    participantEmail: `contact-${Math.floor(Math.random() * 100)}@example.org`,
+    externalPartyId: `contact-${Math.floor(Math.random() * 100)}@example.org`,
+    externalSystemId: null,
     status: randomStatus,
     lastMessagePreview: 'This is the last message in the thread...',
     createdAt: new Date(),
@@ -84,6 +91,8 @@ export function generateDummyThreadMessage(threadId: string, role: 'user' | 'ai'
     role: role,
     content: [{ type: 'text', text: content }],
     createdAt: new Date(),
+    externalMessageId: null,
+    subject: "Subject"
   };
 }
 

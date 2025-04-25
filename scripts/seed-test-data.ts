@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { config } from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
-import * as schema from '@/lib/db/schema';
+import { chat, thread, threadMessage, externalParty, chatParticipant, message } from '../lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
@@ -33,19 +33,29 @@ async function seedTestData() {
     if (!testUser) {
       console.log('Creating test user...');
       const userId = uuidv4();
-      await db.insert(schema.user).values({
+      await db.insert(user).values({
         id: userId,
         email: 'crmchattie@gmail.com',
         password: null, // No password for test user
       });
       
-      testUser = { id: userId, email: 'crmchattie@gmail.com', password: null };
+      testUser = {
+        id: userId,
+        email: 'crmchattie@gmail.com',
+        password: null,
+        fullName: null,
+        usageType: null,
+        gmailConnected: false,
+        referralSource: null,
+        onboardingCompletedAt: null,
+        createdAt: new Date()
+      };
     }
 
     // Create a test chat
     console.log('Creating test chat...');
     const chatId = uuidv4();
-    await db.insert(schema.chat).values({
+    await db.insert(chat).values({
       id: chatId,
       createdAt: new Date(),
       title: 'Test Conversation',
@@ -53,7 +63,7 @@ async function seedTestData() {
     });
 
     // Create chat participant relationship
-    await db.insert(schema.chatParticipant).values({
+    await db.insert(chatParticipant).values({
       chatId: chatId,
       userId: testUser.id,
       role: 'owner',
@@ -70,7 +80,7 @@ async function seedTestData() {
     ];
 
     for (const content of messageContents) {
-      await db.insert(schema.message).values({
+      await db.insert(message).values({
         id: uuidv4(),
         chatId: chatId,
         role: content.role,
@@ -83,24 +93,35 @@ async function seedTestData() {
     // Create threads
     console.log('Creating test threads...');
     const threadData = [
-      { name: 'Acme Corp Contract', status: 'awaiting_reply', preview: 'Need to follow up on contract terms' },
-      { name: 'TechStart Support', status: 'replied', preview: 'They requested more information about our services' },
-      { name: 'Global Widgets Partnership', status: 'closed', preview: 'Partnership agreement finalized last week' }
+      { name: 'Acme Corp Contract', status: 'awaiting_reply' as const, preview: 'Need to follow up on contract terms' },
+      { name: 'TechStart Support', status: 'replied' as const, preview: 'They requested more information about our services' },
+      { name: 'Global Widgets Partnership', status: 'closed' as const, preview: 'Partnership agreement finalized last week' }
     ];
 
+    // Create a test external party
+    const externalPartyId = uuidv4();
+    await db.insert(externalParty).values({
+      id: externalPartyId,
+      name: 'Test Company',
+      email: 'contact@testcompany.com',
+      type: 'business',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
     const threads = [];
-    for (const thread of threadData) {
+    for (const threadInfo of threadData) {
       const threadId = uuidv4();
-      await db.insert(schema.thread).values({
+      await db.insert(thread).values({
         id: threadId,
         chatId: chatId,
-        name: thread.name,
-        participantEmail: `contact-${Math.floor(Math.random() * 100)}@example.org`,
-        status: thread.status as any,
-        lastMessagePreview: thread.preview,
-        createdAt: new Date(),
+        externalPartyId: externalPartyId,
+        name: threadInfo.name,
+        status: threadInfo.status,
+        lastMessagePreview: threadInfo.preview,
+        createdAt: new Date()
       });
-      threads.push({ id: threadId, name: thread.name });
+      threads.push({ id: threadId, name: threadInfo.name });
     }
 
     // Create thread messages
@@ -113,7 +134,7 @@ async function seedTestData() {
       ];
 
       for (const message of threadMessages) {
-        await db.insert(schema.threadMessage).values({
+        await db.insert(threadMessage).values({
           id: uuidv4(),
           threadId: thread.id,
           role: message.role as any,

@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ChatProvider } from '@/lib/stores/chat-store';
+import AuthProvider from '@/components/session-provider';
 
 import './globals.css';
 
@@ -71,17 +72,19 @@ export default async function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <ChatProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <Toaster position="top-center" />
-            {children}
-          </ThemeProvider>
-        </ChatProvider>
+        <AuthProvider>
+          <ChatProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <Toaster position="top-center" />
+              {children}
+            </ThemeProvider>
+          </ChatProvider>
+        </AuthProvider>
       </body>
     </html>
   );

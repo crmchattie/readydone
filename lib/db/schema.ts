@@ -15,6 +15,12 @@ export const user = pgTable('User', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
   email: varchar('email', { length: 64 }).notNull(),
   password: varchar('password', { length: 64 }),
+  fullName: varchar('fullName', { length: 128 }),
+  usageType: varchar('usageType', { enum: ['personal', 'business', 'both'] }),
+  gmailConnected: boolean('gmailConnected').notNull().default(false),
+  referralSource: text('referralSource'),
+  onboardingCompletedAt: timestamp('onboardingCompletedAt'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
 });
 
 export type User = InferSelectModel<typeof user>;
@@ -165,11 +171,28 @@ export const suggestion = pgTable(
 
 export type Suggestion = InferSelectModel<typeof suggestion>;
 
+export const externalParty = pgTable('ExternalParty', {
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  name: varchar('name', { length: 255 }).notNull(),
+  email: varchar('email', { length: 255 }),
+  phone: varchar('phone', { length: 50 }),
+  type: text('type').notNull(),
+  address: varchar('address', { length: 255 }),
+  latitude: varchar('latitude', { length: 20 }),
+  longitude: varchar('longitude', { length: 20 }),
+  website: varchar('website', { length: 255 }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+export type ExternalParty = InferSelectModel<typeof externalParty>;
+
 export const thread = pgTable('Thread', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
   chatId: uuid('chatId').notNull().references(() => chat.id),
-  name: varchar('name', { length: 128 }).notNull(), // e.g. "Queens Roofing Co" or "Mazda Dealer NYC"
-  participantEmail: varchar('participantEmail', { length: 128 }), // optional, for external party
+  externalPartyId: uuid('externalPartyId').notNull().references(() => externalParty.id),
+  name: varchar('name', { length: 128 }).notNull(),
+  externalSystemId: varchar('externalSystemId', { length: 255 }),
   status: varchar('status', { enum: ['awaiting_reply', 'replied', 'closed'] })
     .notNull()
     .default('awaiting_reply'),
@@ -182,8 +205,10 @@ export type Thread = InferSelectModel<typeof thread>;
 export const threadMessage = pgTable('ThreadMessage', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
   threadId: uuid('threadId').notNull().references(() => thread.id),
+  externalMessageId: varchar('externalMessageId', { length: 255 }),
   role: varchar('role', { enum: ['user', 'ai', 'external'] }).notNull(),
-  content: json('content').notNull(), // or text() if preferred
+  subject: varchar('subject', { length: 255 }),
+  content: json('content').notNull(),
   createdAt: timestamp('createdAt').notNull(),
 });
 
@@ -204,3 +229,21 @@ export const userOAuthCredentials = pgTable('UserOAuthCredentials', {
 });
 
 export type UserOAuthCredentials = InferSelectModel<typeof userOAuthCredentials>;
+
+export const gmailWatches = pgTable('GmailWatches', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('userId')
+    .notNull()
+    .references(() => user.id),
+  historyId: varchar('historyId', { length: 255 }),
+  topicName: varchar('topicName', { length: 255 }).notNull(),
+  createdAt: timestamp('createdAt').defaultNow(),
+  expiresAt: timestamp('expiresAt').notNull(),
+  active: boolean('active').notNull().default(true),
+  labels: text('labels'),
+  updatedAt: timestamp('updatedAt').defaultNow(),
+});
+
+export type GmailWatches = InferSelectModel<typeof gmailWatches>;
+
+

@@ -36,6 +36,10 @@ import {
   type ChatParticipant,
   documentAccess,
   type DocumentAccess,
+  gmailWatches,
+  type GmailWatches,
+  externalParty,
+  type ExternalParty,
 } from './schema';
 import type { ArtifactKind } from '@/components/artifact';
 import { generateUUID } from '../utils';
@@ -518,28 +522,33 @@ export async function updateChatVisiblityById({
 export async function saveThread({
   id,
   chatId,
+  externalPartyId,
   name,
-  participantEmail,
+  externalSystemId,
   status = 'awaiting_reply',
   lastMessagePreview,
 }: {
   id: string;
   chatId: string;
+  externalPartyId: string;
   name: string;
-  participantEmail?: string;
+  externalSystemId?: string;
   status?: 'awaiting_reply' | 'replied' | 'closed';
   lastMessagePreview?: string;
 }) {
   try {
-    return await db.insert(thread).values({
-      id,
-      chatId,
-      name,
-      participantEmail,
-      status,
-      lastMessagePreview,
-      createdAt: new Date(),
-    });
+    return await db.insert(thread)
+      .values({
+        id,
+        chatId,
+        externalPartyId,
+        name,
+        externalSystemId,
+        status,
+        lastMessagePreview,
+        createdAt: new Date(),
+      })
+      .returning();
   } catch (error) {
     console.error('Failed to save thread in database');
     throw error;
@@ -562,10 +571,16 @@ export async function getThreadsByChatId({ chatId }: { chatId: string }) {
 export async function saveThreadMessages({
   messages,
 }: {
-  messages: Array<ThreadMessage>;
+  messages: Array<Omit<ThreadMessage, 'id' | 'createdAt'>>;
 }) {
   try {
-    return await db.insert(threadMessage).values(messages);
+    return await db.insert(threadMessage).values(
+      messages.map(message => ({
+        ...message,
+        id: generateUUID(),
+        createdAt: new Date(),
+      }))
+    );
   } catch (error) {
     console.error('Failed to save thread messages in database');
     throw error;
@@ -603,7 +618,7 @@ export async function updateThreadStatus({
       })
       .where(eq(thread.id, threadId));
   } catch (error) {
-    console.error('Failed to update thread');
+    console.error('Failed to update thread status in database');
     throw error;
   }
 }
@@ -899,6 +914,221 @@ export async function removeDocumentAccess({
       );
   } catch (error) {
     console.error('Failed to remove document access from database');
+    throw error;
+  }
+}
+
+export async function updateUser({
+  id,
+  data,
+}: {
+  id: string;
+  data: Partial<Omit<User, 'id' | 'email' | 'password'>>;
+}) {
+  try {
+    return await db
+      .update(user)
+      .set(data)
+      .where(eq(user.id, id));
+  } catch (error) {
+    console.error('Failed to update user in database');
+    throw error;
+  }
+}
+
+export async function saveGmailWatch({
+  userId,
+  historyId,
+  topicName,
+  expiresAt,
+  labels,
+}: Omit<GmailWatches, 'id' | 'createdAt' | 'active'> & { active?: boolean }) {
+  try {
+    return await db.insert(gmailWatches).values({
+      userId,
+      historyId,
+      topicName,
+      expiresAt,
+      labels,
+      active: true,
+    });
+  } catch (error) {
+    console.error('Failed to save Gmail watch in database');
+    throw error;
+  }
+}
+
+export async function updateGmailWatchStatus({
+  id,
+  active,
+}: {
+  id: string;
+  active: boolean;
+}) {
+  try {
+    return await db
+      .update(gmailWatches)
+      .set({
+        active,
+        updatedAt: new Date(),
+      })
+      .where(eq(gmailWatches.id, id));
+  } catch (error) {
+    console.error('Failed to update Gmail watch status in database');
+    throw error;
+  }
+}
+
+export async function getGmailWatchByUserId({ userId }: { userId: string }) {
+  try {
+    const result = await db
+      .select()
+      .from(gmailWatches)
+      .where(eq(gmailWatches.userId, userId))
+      .orderBy(desc(gmailWatches.createdAt))
+      .limit(1);
+    
+    return result[0];
+  } catch (error) {
+    console.error('Failed to get Gmail watch by user id from database');
+    throw error;
+  }
+}
+
+export async function getExpiredGmailWatches() {
+  try {
+    const now = new Date();
+    return await db
+      .select()
+      .from(gmailWatches)
+      .where(
+        and(
+          eq(gmailWatches.active, true),
+          lt(gmailWatches.expiresAt, now)
+        )
+      );
+  } catch (error) {
+    console.error('Failed to get expired Gmail watches from database');
+    throw error;
+  }
+}
+
+export async function getAllActiveGmailWatches() {
+  try {
+    return await db
+      .select()
+      .from(gmailWatches)
+      .where(eq(gmailWatches.active, true))
+      .innerJoin(user, eq(gmailWatches.userId, user.id));
+  } catch (error) {
+    console.error('Failed to get all active Gmail watches from database');
+    throw error;
+  }
+}
+
+// External Party queries
+export async function saveExternalParty({
+  name,
+  email,
+  phone,
+  type,
+  address,
+  latitude,
+  longitude,
+  website,
+}: Omit<ExternalParty, 'id' | 'createdAt' | 'updatedAt'>) {
+  try {
+    return await db.insert(externalParty).values({
+      name,
+      email,
+      phone,
+      type,
+      address,
+      latitude,
+      longitude,
+      website,
+    });
+  } catch (error) {
+    console.error('Failed to save external party in database');
+    throw error;
+  }
+}
+
+export async function getExternalPartyByEmail({ email }: { email: string }) {
+  try {
+    const result = await db
+      .select()
+      .from(externalParty)
+      .where(eq(externalParty.email, email))
+      .limit(1);
+    
+    return result[0];
+  } catch (error) {
+    console.error('Failed to get external party by email from database');
+    throw error;
+  }
+}
+
+export async function getExternalPartyById({ id }: { id: string }) {
+  try {
+    const result = await db
+      .select()
+      .from(externalParty)
+      .where(eq(externalParty.id, id))
+      .limit(1);
+    
+    return result[0];
+  } catch (error) {
+    console.error('Failed to get external party by id from database');
+    throw error;
+  }
+}
+
+export async function getThreadWithExternalParty({ threadId }: { threadId: string }) {
+  try {
+    const result = await db
+      .select({
+        thread: thread,
+        externalParty: externalParty,
+      })
+      .from(thread)
+      .innerJoin(externalParty, eq(thread.externalPartyId, externalParty.id))
+      .where(eq(thread.id, threadId))
+      .limit(1);
+    
+    return result[0];
+  } catch (error) {
+    console.error('Failed to get thread with external party from database');
+    throw error;
+  }
+}
+
+export async function getThreadByExternalId({ externalSystemId }: { externalSystemId: string }) {
+  try {
+    const result = await db
+      .select()
+      .from(thread)
+      .where(eq(thread.externalSystemId, externalSystemId))
+      .limit(1);
+    
+    return result[0];
+  } catch (error) {
+    console.error('Failed to get thread by external id from database');
+    throw error;
+  }
+}
+
+export async function getThread({ id }: { id: string }) {
+  try {
+    const result = await db
+      .select()
+      .from(thread)
+      .where(eq(thread.id, id))
+      .limit(1);
+    
+    return result[0];
+  } catch (error) {
+    console.error('Failed to get thread by id from database');
     throw error;
   }
 }

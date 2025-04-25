@@ -35,9 +35,9 @@ export default function Page() {
       });
     } else if (state.status === 'success') {
       toast({ type: 'success', description: 'Account created successfully!' });
-
       setIsSuccessful(true);
       router.refresh();
+      router.push('/onboarding');
     }
   }, [state.status, router]);
 

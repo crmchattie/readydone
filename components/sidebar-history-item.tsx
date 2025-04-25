@@ -52,37 +52,36 @@ const PureChatItem = ({
   const { currentChat } = useChatStore();
   const isActiveChat = isActive || currentChat?.id === chat.id;
   
-  // Debug rendering with isCollapsed prop
-  useEffect(() => {
-    console.log(`PureChatItem ${chat.id} - Rendering with isCollapsed: ${isCollapsed}, isActive: ${isActiveChat}`);
-  }, [chat.id, isCollapsed, isActiveChat]);
   
   return (
-    <SidebarMenuItem>
+    <SidebarMenuItem className="relative flex items-center">
       <SidebarMenuButton 
         asChild 
         isActive={isActiveChat}
         tooltip={isCollapsed ? chat.title : undefined}
+        className="w-full"
       >
         <Button 
           variant="ghost"
-          className="w-full text-left"
+          className="w-full"
           onClick={() => {
             onSelectChat?.(chat.id);
           }}
         >
-          {isCollapsed ? (
-            <MessageCircle className="size-4" />
-          ) : (
-            <span>{chat.title}</span>
-          )}
+          <div className="absolute inset-0 flex items-center justify-center">
+            {isCollapsed ? (
+              <MessageCircle className="size-4" />
+            ) : (
+              <span>{chat.title}</span>
+            )}
+          </div>
         </Button>
       </SidebarMenuButton>
 
       <DropdownMenu modal={true}>
         <DropdownMenuTrigger asChild>
           <SidebarMenuAction
-            className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground mr-0.5"
+            className="absolute right-1.5 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             showOnHover={!isActive}
           >
             <MoreHorizontalIcon />
@@ -91,8 +90,8 @@ const PureChatItem = ({
         </DropdownMenuTrigger>
 
         <DropdownMenuContent side="bottom" align="end">
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger className="cursor-pointer">
+          {/* <DropdownMenuSub> */}
+            {/* <DropdownMenuSubTrigger className="cursor-pointer">
               <ShareIcon />
               <span>Share</span>
             </DropdownMenuSubTrigger>
@@ -126,7 +125,7 @@ const PureChatItem = ({
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuPortal>
-          </DropdownMenuSub>
+          </DropdownMenuSub> */}
 
           <DropdownMenuItem
             className="cursor-pointer text-destructive focus:bg-destructive/15 focus:text-destructive dark:text-red-500"

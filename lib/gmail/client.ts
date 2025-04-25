@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import { UserOAuthCredentials } from '@/lib/db/schema';
 import { updateUserOAuthCredentials } from '@/lib/db/queries';
+import { RateLimiter } from '@/lib/utils';
 
 interface GmailCredentials {
   accessToken: string;
@@ -14,6 +15,7 @@ export class GmailClient {
   private userId: string;
   private credentials: GmailCredentials;
   private credentialId: string;
+  private rateLimiter: RateLimiter;
 
   constructor(
     userId: string,
@@ -23,6 +25,10 @@ export class GmailClient {
     this.userId = userId;
     this.credentials = credentials;
     this.credentialId = credentialId;
+    this.rateLimiter = new RateLimiter({
+      maxRequests: 250, // Gmail API quota per user per second
+      perSeconds: 100
+    });
 
     this.oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
@@ -47,17 +53,21 @@ export class GmailClient {
       try {
         const { credentials } = await this.oauth2Client.refreshAccessToken();
         
+        if (!credentials.access_token) {
+          throw new Error('No access token returned from refresh');
+        }
+
         // Update database with new token
         await updateUserOAuthCredentials({
           id: String(this.credentialId),
-          accessToken: credentials.access_token!,
+          accessToken: credentials.access_token,
           refreshToken: credentials.refresh_token || this.credentials.refreshToken,
           expiresAt: credentials.expiry_date ? new Date(credentials.expiry_date) : undefined
         });
 
         // Update local credentials
         this.credentials = {
-          accessToken: credentials.access_token!,
+          accessToken: credentials.access_token,
           refreshToken: credentials.refresh_token || this.credentials.refreshToken,
           expiresAt: credentials.expiry_date ? new Date(credentials.expiry_date) : undefined
         };
@@ -77,110 +87,129 @@ export class GmailClient {
 
   // Helper function to decode Gmail messages
   private decodeBase64Url(data: string) {
-    const base64 = data.replace(/-/g, '+').replace(/_/g, '/');
-    return Buffer.from(base64, 'base64').toString('utf-8');
+    try {
+      const base64 = data.replace(/-/g, '+').replace(/_/g, '/');
+      return Buffer.from(base64, 'base64').toString('utf-8');
+    } catch (error) {
+      console.error('Error decoding base64 data:', error);
+      return '';
+    }
+  }
+
+  // Rate-limited API request wrapper
+  private async rateLimitedRequest<T>(
+    requestFn: () => Promise<T>,
+    errorMessage: string
+  ): Promise<T> {
+    await this.rateLimiter.waitForToken();
+    try {
+      await this.ensureValidToken();
+      return await requestFn();
+    } catch (error: any) {
+      if (error.code === 429) {
+        // Rate limit exceeded, wait and retry once
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return await requestFn();
+      }
+      console.error(errorMessage, error);
+      throw new Error(`${errorMessage}: ${error.message}`);
+    }
   }
 
   // Fetch messages from a thread
   async getMessageThread(threadId: string) {
-    await this.ensureValidToken();
-    
-    try {
-      const thread = await this.gmail.users.threads.get({
+    return this.rateLimitedRequest(
+      () => this.gmail.users.threads.get({
         userId: 'me',
         id: threadId
-      });
-      
-      return thread.data;
-    } catch (error) {
-      console.error('Error fetching message thread:', error);
-      throw new Error('Failed to fetch message thread');
-    }
+      }).then(response => response.data),
+      'Failed to fetch message thread'
+    );
   }
 
   // Fetch all threads matching a query
   async listThreads(query: string, maxResults = 10) {
-    await this.ensureValidToken();
-    
-    try {
-      const response = await this.gmail.users.threads.list({
+    return this.rateLimitedRequest(
+      () => this.gmail.users.threads.list({
         userId: 'me',
         q: query,
         maxResults
-      });
-      
-      return response.data.threads || [];
-    } catch (error) {
-      console.error('Error listing threads:', error);
-      throw new Error('Failed to list threads');
-    }
+      }).then(response => response.data.threads || []),
+      'Failed to list threads'
+    );
   }
 
   // Extract message content (body, subject, etc.)
   extractMessageContent(message: any) {
-    const headers = message.payload.headers;
-    
-    const subject = headers.find((header: any) => header.name === 'Subject')?.value || '';
-    const from = headers.find((header: any) => header.name === 'From')?.value || '';
-    const to = headers.find((header: any) => header.name === 'To')?.value || '';
-    const date = headers.find((header: any) => header.name === 'Date')?.value || '';
-    
-    let body = '';
-    
-    // Function to recursively extract parts
-    const extractParts = (part: any) => {
-      if (part.mimeType === 'text/plain' && part.body.data) {
-        body += this.decodeBase64Url(part.body.data);
-      } else if (part.parts) {
-        part.parts.forEach(extractParts);
+    try {
+      const headers = message.payload.headers;
+      
+      const subject = headers.find((header: any) => header.name === 'Subject')?.value || '';
+      const from = headers.find((header: any) => header.name === 'From')?.value || '';
+      const to = headers.find((header: any) => header.name === 'To')?.value || '';
+      const date = headers.find((header: any) => header.name === 'Date')?.value || '';
+      
+      let body = '';
+      
+      // Function to recursively extract parts
+      const extractParts = (part: any) => {
+        if (part.mimeType === 'text/plain' && part.body.data) {
+          body += this.decodeBase64Url(part.body.data);
+        } else if (part.parts) {
+          part.parts.forEach(extractParts);
+        }
+      };
+      
+      if (message.payload.body.data) {
+        body = this.decodeBase64Url(message.payload.body.data);
+      } else if (message.payload.parts) {
+        message.payload.parts.forEach(extractParts);
       }
-    };
-    
-    if (message.payload.body.data) {
-      body = this.decodeBase64Url(message.payload.body.data);
-    } else if (message.payload.parts) {
-      message.payload.parts.forEach(extractParts);
+      
+      return {
+        id: message.id,
+        threadId: message.threadId,
+        subject,
+        from,
+        to,
+        date: new Date(date),
+        body,
+        raw: message
+      };
+    } catch (error) {
+      console.error('Error extracting message content:', error);
+      throw new Error('Failed to extract message content');
     }
-    
-    return {
-      id: message.id,
-      threadId: message.threadId,
-      subject,
-      from,
-      to,
-      date: new Date(date),
-      body,
-      raw: message
-    };
   }
 
   // Send a message
   async sendMessage({ to, subject, body }: { to: string; subject: string; body: string }) {
-    await this.ensureValidToken();
-    
-    try {
-      const message = [
-        'From: me',
-        `To: ${to}`,
-        `Subject: ${subject}`,
-        '',
-        body
-      ].join('\n');
-      
-      const encodedMessage = Buffer.from(message).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-      
-      const res = await this.gmail.users.messages.send({
-        userId: 'me',
-        requestBody: {
-          raw: encodedMessage
-        }
-      });
-      
-      return res.data;
-    } catch (error) {
-      console.error('Error sending message:', error);
-      throw new Error('Failed to send message');
-    }
+    return this.rateLimitedRequest(
+      async () => {
+        const message = [
+          'From: me',
+          `To: ${to}`,
+          `Subject: ${subject}`,
+          '',
+          body
+        ].join('\n');
+        
+        const encodedMessage = Buffer.from(message).toString('base64')
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '');
+        
+        const res = await this.gmail.users.messages.send({
+          userId: 'me',
+          requestBody: {
+            raw: encodedMessage
+          }
+        });
+        
+        return res.data;
+      },
+      'Failed to send message'
+    );
   }
 
   // Reply to a message
@@ -257,46 +286,31 @@ export class GmailClient {
     return newMessages.map((msg: any) => this.extractMessageContent(msg));
   }
 
-  // Set up Gmail push notifications using watch
-  async setupWatch(topicName: string, labelIds: string[] = []) {
-    await this.ensureValidToken();
-    
-    try {
-      const response = await this.gmail.users.watch({
-        userId: 'me',
-        requestBody: {
-          topicName,
-          labelIds: labelIds.length > 0 ? labelIds : undefined,
-        }
-      });
-      
-      // Return the watch response including historyId and expiration
-      return {
-        historyId: response.data.historyId,
-        expiration: response.data.expiration 
-          ? new Date(parseInt(response.data.expiration)) 
-          : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Default 7 days if not provided
-      };
-    } catch (error) {
-      console.error('Error setting up Gmail watch:', error);
-      throw new Error('Failed to set up Gmail watch notification');
-    }
+  // Setup Gmail push notifications
+  async setupWatch(topicName: string) {
+    return this.rateLimitedRequest(
+      async () => {
+        const res = await this.gmail.users.watch({
+          userId: 'me',
+          requestBody: {
+            topicName,
+            labelIds: ['INBOX']
+          }
+        });
+        return res.data;
+      },
+      'Failed to setup Gmail watch'
+    );
   }
 
   // Stop Gmail push notifications
   async stopWatch() {
-    await this.ensureValidToken();
-    
-    try {
-      await this.gmail.users.stop({
+    return this.rateLimitedRequest(
+      () => this.gmail.users.stop({
         userId: 'me'
-      });
-      
-      return true;
-    } catch (error) {
-      console.error('Error stopping Gmail watch:', error);
-      throw new Error('Failed to stop Gmail watch notification');
-    }
+      }).then(response => response.data),
+      'Failed to stop Gmail watch'
+    );
   }
 
   // Create a label in Gmail
@@ -356,38 +370,21 @@ export class GmailClient {
     }
   }
 
-  // Get history based on historyId
+  // Get message history
   async getHistory(startHistoryId: string) {
-    await this.ensureValidToken();
-    
-    try {
-      const response = await this.gmail.users.history.list({
+    return this.rateLimitedRequest(
+      () => this.gmail.users.history.list({
         userId: 'me',
         startHistoryId
-      });
-      
-      return response.data.history || [];
-    } catch (error) {
-      console.error('Error getting Gmail history:', error);
-      throw new Error('Failed to get Gmail history');
-    }
+      }).then(response => response.data.history || []),
+      'Failed to get message history'
+    );
   }
 
-  // Get all messages in a thread
+  // Get messages in a thread
   async getThreadMessages(threadId: string) {
-    await this.ensureValidToken();
-    
-    try {
-      const thread = await this.gmail.users.threads.get({
-        userId: 'me',
-        id: threadId,
-      });
-      
-      return thread.data.messages || [];
-    } catch (error) {
-      console.error('Error getting thread messages:', error);
-      throw new Error('Failed to get thread messages');
-    }
+    const thread = await this.getMessageThread(threadId);
+    return thread.messages || [];
   }
 
   // Send a reply in a thread

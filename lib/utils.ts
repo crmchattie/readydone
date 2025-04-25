@@ -171,3 +171,66 @@ export function generateDummyPassword() {
 
   return hash;
 }
+
+interface RateLimiterOptions {
+  maxRequests: number;
+  perSeconds: number;
+}
+
+export class RateLimiter {
+  private tokens: number;
+  private lastRefill: number;
+  private maxTokens: number;
+  private refillRate: number;
+
+  constructor(options: RateLimiterOptions) {
+    this.maxTokens = options.maxRequests;
+    this.tokens = options.maxRequests;
+    this.lastRefill = Date.now();
+    this.refillRate = options.maxRequests / (options.perSeconds * 1000); // tokens per millisecond
+  }
+
+  private refill() {
+    const now = Date.now();
+    const timePassed = now - this.lastRefill;
+    const newTokens = timePassed * this.refillRate;
+    this.tokens = Math.min(this.maxTokens, this.tokens + newTokens);
+    this.lastRefill = now;
+  }
+
+  async waitForToken(): Promise<void> {
+    this.refill();
+
+    if (this.tokens >= 1) {
+      this.tokens -= 1;
+      return;
+    }
+
+    // Calculate wait time until next token
+    const waitTime = Math.ceil((1 - this.tokens) / this.refillRate);
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+    
+    return this.waitForToken();
+  }
+} 
+
+export function isSameDay(date1: Date, date2: Date): boolean {
+  return date1.getUTCFullYear() === date2.getUTCFullYear() &&
+         date1.getUTCMonth() === date2.getUTCMonth() &&
+         date1.getUTCDate() === date2.getUTCDate();
+}
+
+export const GMAIL_SCOPES = [
+  'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/userinfo.email',
+  'https://www.googleapis.com/auth/userinfo.profile'
+];
+
+export const GMAIL_SCOPES_STRING = GMAIL_SCOPES.join(' '); 
+
+export const capitalizeWords = (string: string | undefined | null) => {
+  if (!string) return 'Not specified';
+  return string.split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};

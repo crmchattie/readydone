@@ -15,6 +15,8 @@ import { useArtifactSelector } from '@/hooks/use-artifact';
 import { toast } from 'sonner';
 import { unstable_serialize } from 'swr/infinite';
 import { getChatHistoryPaginationKey } from './sidebar-history';
+import { LoaderIcon } from './icons';
+import { useChatStore } from '@/lib/stores/chat-store';
 
 export function Chat({
   id,
@@ -36,6 +38,7 @@ export function Chat({
   selectedThread?: any;
 }) {
   const { mutate } = useSWRConfig();
+  const { isLoadingMessages } = useChatStore();
   
   // Ensure initialMessages is an array
   const safeInitialMessages = Array.isArray(initialMessages) ? initialMessages : [];
@@ -82,6 +85,22 @@ export function Chat({
           <div className="text-center p-8">
             <p className="mb-2 text-sm font-medium">Select a thread to view its messages</p>
             <p className="text-sm text-muted-foreground">Choose a conversation thread from the list</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoadingMessages) {
+    return (
+      <div className="flex flex-col min-w-0 h-full bg-background">
+        <ChatHeader toggle={toggle} />
+        <div className="flex flex-1 justify-center items-center">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <div className="animate-spin">
+              <LoaderIcon size={20} />
+            </div>
+            <span>Loading chat...</span>
           </div>
         </div>
       </div>

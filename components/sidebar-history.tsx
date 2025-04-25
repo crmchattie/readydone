@@ -1,33 +1,18 @@
 'use client';
 
 import { format, isToday, isYesterday, subMonths, subWeeks } from 'date-fns';
-import type { User } from 'next-auth';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarMenu,
 } from '@/components/ui/sidebar';
 import type { Chat } from '@/lib/db/schema';
-import { fetcher, cn } from '@/lib/utils';
 import { ChatItem } from '@/components/sidebar-history-item';
-import useSWRInfinite from 'swr/infinite';
-import { Loader2, MessageSquare, Trash } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { usePanel } from '@/lib/panel-context';
-import { Button } from '@/components/ui/button';
 
 type GroupedChats = {
   today: Chat[];
