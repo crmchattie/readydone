@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 export default function LandingPage() {
   return (
     <>
-      <NavbarHome />
+      {/* <NavbarHome /> */}
       <LandingPageClient />
     </>
   )

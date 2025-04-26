@@ -9,18 +9,22 @@ import {
   primaryKey,
   foreignKey,
   boolean,
+  integer,
+  serial
 } from 'drizzle-orm/pg-core';
 
 export const user = pgTable('User', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
   email: varchar('email', { length: 64 }).notNull(),
   password: varchar('password', { length: 64 }),
-  fullName: varchar('fullName', { length: 128 }),
+  firstName: varchar('firstName', { length: 64 }),
+  lastName: varchar('lastName', { length: 64 }),
   usageType: varchar('usageType', { enum: ['personal', 'business', 'both'] }),
   gmailConnected: boolean('gmailConnected').notNull().default(false),
   referralSource: text('referralSource'),
   onboardingCompletedAt: timestamp('onboardingCompletedAt'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
+  stripeCustomerId: varchar('stripe_customer_id', { length: 255 }),
 });
 
 export type User = InferSelectModel<typeof user>;
@@ -246,4 +250,88 @@ export const gmailWatches = pgTable('GmailWatches', {
 
 export type GmailWatches = InferSelectModel<typeof gmailWatches>;
 
+// Stripe related tables
+export const stripeProducts = pgTable('StripeProducts', {
+  id: serial('id').primaryKey(),
+  stripeProductId: varchar('stripeProductId', { length: 255 }).notNull().unique(),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  active: boolean('active').notNull().default(true),
+  metadata: json('metadata'),
+  createdAt: timestamp('createdAt').defaultNow(),
+  updatedAt: timestamp('updatedAt').defaultNow(),
+});
 
+export type StripeProducts = InferSelectModel<typeof stripeProducts>;
+
+export const stripePrices = pgTable('StripePrices', {
+  id: serial('id').primaryKey(),
+  stripePriceId: varchar('stripePriceId', { length: 255 }).notNull().unique(),
+  productId: integer('productId').references(() => stripeProducts.id),
+  type: varchar('type', { length: 50 }).notNull(), // 'one_time' or 'recurring'
+  currency: varchar('currency', { length: 3 }).notNull().default('usd'),
+  unitAmount: integer('unitAmount').notNull(), // in cents
+  recurring: json('recurring'), // null for one-time, contains interval, etc. for subscriptions
+  active: boolean('active').notNull().default(true),
+  metadata: json('metadata'),
+  createdAt: timestamp('createdAt').defaultNow(),
+  updatedAt: timestamp('updatedAt').defaultNow(),
+});
+
+export type StripePrices = InferSelectModel<typeof stripePrices>;
+
+export const stripeCustomers = pgTable('StripeCustomers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('userId')
+    .notNull()
+    .references(() => user.id)
+    .unique(),
+  stripeCustomerId: varchar('stripeCustomerId', { length: 255 }).notNull().unique(),
+  email: varchar('email', { length: 255 }).notNull(),
+  name: varchar('name', { length: 255 }),
+  metadata: json('metadata'),
+  createdAt: timestamp('createdAt').defaultNow(),
+  updatedAt: timestamp('updatedAt').defaultNow(),
+});
+
+export type StripeCustomers = InferSelectModel<typeof stripeCustomers>;
+
+export const stripeSubscriptions = pgTable('StripeSubscriptions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('userId')
+    .notNull()
+    .references(() => user.id),
+  stripeSubscriptionId: varchar('stripeSubscriptionId', { length: 255 }).notNull().unique(),
+  stripePriceId: varchar('stripePriceId', { length: 255 })
+    .notNull()
+    .references(() => stripePrices.stripePriceId),
+  status: varchar('status', { length: 50 }).notNull(), // 'active', 'canceled', 'past_due', etc.
+  currentPeriodStart: timestamp('currentPeriodStart'),
+  currentPeriodEnd: timestamp('currentPeriodEnd'),
+  cancelAtPeriodEnd: boolean('cancelAtPeriodEnd').default(false),
+  metadata: json('metadata'),
+  createdAt: timestamp('createdAt').defaultNow(),
+  updatedAt: timestamp('updatedAt').defaultNow(),
+});
+
+export type StripeSubscriptions = InferSelectModel<typeof stripeSubscriptions>;
+
+export const stripePayments = pgTable('StripePayments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('userId')
+    .notNull()
+    .references(() => user.id),
+  stripePaymentIntentId: varchar('stripePaymentIntentId', { length: 255 }).unique(),
+  stripePriceId: varchar('stripePriceId', { length: 255 })
+    .notNull()
+    .references(() => stripePrices.stripePriceId),
+  amount: integer('amount').notNull(), // in cents
+  currency: varchar('currency', { length: 3 }).notNull().default('usd'),
+  status: varchar('status', { length: 50 }).notNull(), // 'succeeded', 'processing', 'canceled', etc.
+  paymentMethod: varchar('paymentMethod', { length: 50 }), // 'card', 'sepa', etc.
+  metadata: json('metadata'),
+  createdAt: timestamp('createdAt').defaultNow(),
+  updatedAt: timestamp('updatedAt').defaultNow(),
+});
+
+export type StripePayments = InferSelectModel<typeof stripePayments>;

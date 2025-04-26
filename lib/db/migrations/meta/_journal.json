@@ -71,6 +71,20 @@
       "when": 1745538998042,
       "tag": "0009_long_mephisto",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1745634705735,
+      "tag": "0010_robust_smiling_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1745635649078,
+      "tag": "0011_fast_black_tom",
+      "breakpoints": true
     }
   ]
 }

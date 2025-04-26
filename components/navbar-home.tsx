@@ -13,7 +13,7 @@ export default function NavbarHome() {
   const { status } = useSession()
   const [isOpen, setIsOpen] = useState(false);
 
-  const getStartedLink = status === "authenticated" ? "/dashboard" : "/register"
+  const getStartedLink = status === "authenticated" ? "/" : "/register"
   const getStartedText = status === "authenticated" ? "Dashboard" : "Get Started"
 
   const menuItems = [

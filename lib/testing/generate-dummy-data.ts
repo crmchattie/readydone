@@ -8,11 +8,13 @@ export function generateDummyUser(): User {
     email: `user-${Math.floor(Math.random() * 1000)}@example.com`,
     password: null,
     createdAt: new Date(),
-    fullName: null,
+    firstName: null,
+    lastName: null,
     usageType: null,
     gmailConnected: false,
     referralSource: null,
-    onboardingCompletedAt: null
+    onboardingCompletedAt: null,
+    stripeCustomerId: null
   };
 }
 

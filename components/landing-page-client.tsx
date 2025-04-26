@@ -30,20 +30,30 @@ export default function LandingPageClient() {
   const savingsPerYear = 40
 
   useEffect(() => {
+    console.log("LandingPage: useEffect running")
     async function fetchUserCount() {
+      console.log("LandingPage: fetchUserCount starting")
       try {
+        console.log("LandingPage: Making fetch request to /api/users/count")
         const response = await fetch('/api/users/count')
+        console.log("LandingPage: Response received:", response.status)
+        if (!response.ok) {
+          const text = await response.text()
+          console.error("LandingPage: Response not OK:", response.status, text)
+          return
+        }
         const data = await response.json()
+        console.log("LandingPage: Data received:", data)
         setUserCount(data.count)
       } catch (error) {
-        console.error('Failed to fetch user count:', error)
+        console.error('LandingPage: Failed to fetch user count:', error)
       }
     }
 
     fetchUserCount()
   }, [])
 
-  const getStartedLink = status === "authenticated" ? "/dashboard" : "/register"
+  const getStartedLink = status === "authenticated" ? "/" : "/register"
 
   const testimonials = [
     {
@@ -84,10 +94,10 @@ export default function LandingPageClient() {
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight">
                 Let AI Handle Your
-                <span className="block text-primary mt-2">Business Outreach</span>
+                <span className="block text-primary mt-2">Professional Outreach</span>
               </h1>
               <p className="text-xl text-muted-foreground">
-                From finding businesses to sending emails and organizing replies — Plot handles the tedious work while you focus on making decisions.
+                From finding the right providers to negotiating deals and managing responses — Plot handles the tedious work while you focus on making decisions.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <Button asChild size="lg" className="font-medium px-8">
@@ -99,9 +109,9 @@ export default function LandingPageClient() {
                 <Button asChild variant="outline" size="lg" className="font-medium">
                   <Link href="#how-it-works">How It Works</Link>
                 </Button>
-                <Button asChild variant="outline" size="lg" className="font-medium">
+                {/* <Button asChild variant="outline" size="lg" className="font-medium">
                   <Link href="/examples">See Examples</Link>
-                </Button>
+                </Button> */}
               </div>
               <div className="flex items-center text-sm text-muted-foreground mt-2">
                 <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium mr-2">
@@ -130,8 +140,8 @@ export default function LandingPageClient() {
                           <Search className="size-5 text-primary" />
                         </div>
                         <div className="ml-3">
-                          <h3 className="font-semibold">Business Search</h3>
-                          <p className="text-sm text-gray-500">Finding relevant businesses...</p>
+                          <h3 className="font-semibold">Smart Search</h3>
+                          <p className="text-sm text-gray-500">Finding relevant information...</p>
                         </div>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2.5">
@@ -146,15 +156,15 @@ export default function LandingPageClient() {
                       </div>
                       <div className="space-y-3">
                         <div className="flex items-center justify-between text-sm">
-                          <span>Business A</span>
+                          <span>Source A</span>
                           <span className="font-medium text-green-600">Replied</span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
-                          <span>Business B</span>
+                          <span>Source B</span>
                           <span className="font-medium text-green-600">Replied</span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
-                          <span>Business C</span>
+                          <span>Source C</span>
                           <span className="font-medium text-green-600">Replied</span>
                         </div>
                       </div>
@@ -205,7 +215,7 @@ export default function LandingPageClient() {
             </div>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">How It Works</h2>
             <p className="text-xl text-muted-foreground">
-              Our AI-powered platform handles your business outreach from start to finish in just a few simple steps.
+              Our AI-powered platform handles your outreach and negotiations from start to finish in just a few simple steps.
             </p>
           </div>
 
@@ -217,7 +227,7 @@ export default function LandingPageClient() {
                 </div>
                 <h3 className="text-xl font-semibold mb-3">Describe Your Need</h3>
                 <p className="text-muted-foreground mb-6">
-                  Tell the AI what you&apos;re looking for - whether it&apos;s car dealers, insurance quotes, event vendors, or any other business outreach.
+                  Tell the AI what you&apos;re looking for - whether it&apos;s car dealers, insurance providers, event vendors, or any other providers you need to coordinate with.
                 </p>
                 <div className="p-4 bg-card rounded-lg shadow-sm border border-border w-full h-[200px] flex flex-col">
                   <div className="flex items-center mb-3">
@@ -230,12 +240,12 @@ export default function LandingPageClient() {
                       <span>Insurance Quotes</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Location:</span>
-                      <span>San Francisco</span>
+                      <span className="text-muted-foreground">Type:</span>
+                      <span>Auto + Home</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Details:</span>
-                      <span>Auto + Home</span>
+                      <span className="text-muted-foreground">Region:</span>
+                      <span>California</span>
                     </div>
                   </div>
                 </div>
@@ -247,7 +257,7 @@ export default function LandingPageClient() {
                 </div>
                 <h3 className="text-xl font-semibold mb-3">AI Takes Action</h3>
                 <p className="text-muted-foreground mb-6">
-                  The AI finds relevant businesses, crafts personalized emails, and manages all communication through your connected Gmail.
+                  The AI finds relevant providers, crafts personalized messages, and manages all communication through your connected accounts.
                 </p>
                 <div className="p-4 bg-card rounded-lg shadow-sm border border-border w-full h-[200px] flex flex-col">
                   <div className="flex items-center mb-3">
@@ -281,7 +291,7 @@ export default function LandingPageClient() {
                 </div>
                 <h3 className="text-xl font-semibold mb-3">Stay Organized</h3>
                 <p className="text-muted-foreground mb-6">
-                  Responses are automatically organized into clear threads, with helpful docs and spreadsheets to track everything.
+                  All information and responses are automatically organized into clear summaries, with helpful docs and spreadsheets to track everything.
                 </p>
                 <div className="p-4 bg-card rounded-lg shadow-sm border border-border w-full h-[200px] flex flex-col">
                   <div className="flex items-center mb-3">
@@ -432,7 +442,7 @@ export default function LandingPageClient() {
             </div>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Key Features</h2>
             <p className="text-xl text-muted-foreground">
-              Our platform is designed to save you time and hassle on any business outreach task.
+              Our platform is designed to save you time and hassle on any outreach or negotiation task.
             </p>
           </div>
 
@@ -445,9 +455,9 @@ export default function LandingPageClient() {
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-3">Smart Business Search</h3>
+                  <h3 className="text-xl font-semibold mb-3">Smart Search & Analysis</h3>
                   <p className="text-muted-foreground">
-                    Our AI finds relevant businesses based on your needs, using real-time data and advanced filtering to ensure you reach the right contacts.
+                    Our AI finds the right providers based on your needs, using real-time data and advanced filtering to ensure you get the best options.
                   </p>
                 </div>
               </div>
@@ -461,9 +471,9 @@ export default function LandingPageClient() {
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-3">AI-Powered Outreach</h3>
+                  <h3 className="text-xl font-semibold mb-3">AI-Powered Communication</h3>
                   <p className="text-muted-foreground">
-                    Let our AI craft personalized emails that get responses. Works with your Gmail account to keep everything professional and organized.
+                    Let our AI craft personalized messages that get responses. Works with your email to keep everything professional and organized.
                   </p>
                 </div>
               </div>
@@ -479,7 +489,7 @@ export default function LandingPageClient() {
                 <div>
                   <h3 className="text-xl font-semibold mb-3">Smart Documents</h3>
                   <p className="text-muted-foreground">
-                    Every task comes with intelligent docs and spreadsheets to track quotes, compare options, or build checklists - all integrated into your workflow.
+                    Every task comes with intelligent docs and spreadsheets to track quotes, compare options, and organize responses - all integrated into your workflow.
                   </p>
                 </div>
               </div>
@@ -628,7 +638,7 @@ export default function LandingPageClient() {
                 </summary>
                 <div className="px-6 pb-6 pt-0">
                   <p className="text-muted-foreground">
-                    Yes, your privacy is our top priority. We handle all dealer communications through our secure platform, keeping your personal email private and free from spam. You&apos;ll only receive important updates about your car search through our dashboard.
+                    Yes, your privacy is our top priority. We handle all communications through our secure platform, keeping your personal email private and free from spam. You&apos;ll only receive important updates through our dashboard.
                   </p>
                 </div>
               </details>
@@ -644,9 +654,9 @@ export default function LandingPageClient() {
                 </summary>
                 <div className="px-6 pb-6 pt-0">
                   <p className="text-muted-foreground">
-                    The initial setup takes about 5 minutes where you&apos;ll provide your car preferences and connect your
-                    email. After that, our AI begins contacting dealerships immediately. Most users receive their first
-                    responses within 24-48 hours, and the full negotiation process typically completes within 5-7 days.
+                    The initial setup takes about 5 minutes where you&apos;ll provide your preferences and connect your
+                    email. After that, our AI begins reaching out immediately. Most users receive their first
+                    responses within 24-48 hours, and the full process typically completes within 3-5 days.
                   </p>
                 </div>
               </details>
@@ -660,7 +670,7 @@ export default function LandingPageClient() {
         <div className="absolute inset-0 bg-[url('/placeholder.svg?height=1080&width=1920')] bg-cover bg-center opacity-5"></div>
         <div className="container mx-auto px-4 sm:px-6 relative">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to simplify your business outreach?</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to simplify your workflow?</h2>
             <p className="text-xl text-muted-foreground mb-8">
               Start free and upgrade to Pro for ${monthlyPrice}/month when you need more. Let our AI handle the tedious work while you focus on what matters.
             </p>

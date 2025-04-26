@@ -8,7 +8,8 @@ import { createSafeActionClient } from 'next-safe-action';
 const actionClient = createSafeActionClient();
 
 const onboardingSchema = z.object({
-  fullName: z.string().min(1).max(128),
+  firstName: z.string().min(1).max(64),
+  lastName: z.string().min(1).max(64),
   usageType: z.enum(['personal', 'business', 'both']),
   referralSource: z.string().optional(),
   gmailConnected: z.boolean(),
@@ -25,10 +26,8 @@ export const saveOnboarding = actionClient
 
       await updateUser({
         id: session.user.id,
-        data: {
-          ...parsedInput,
-          onboardingCompletedAt: new Date(),
-        },
+        ...parsedInput,
+        onboardingCompletedAt: new Date(),
       });
 
       return { status: 'success' };

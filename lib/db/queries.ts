@@ -11,6 +11,7 @@ import {
   inArray,
   lt,
   type SQL,
+  sql
 } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
@@ -40,6 +41,14 @@ import {
   type GmailWatches,
   externalParty,
   type ExternalParty,
+  stripePrices,
+  type StripePrices,
+  stripeProducts,
+  type StripeProducts,
+  stripeCustomers,
+  type StripeCustomers,
+  stripePayments,
+  type StripePayments
 } from './schema';
 import type { ArtifactKind } from '@/components/artifact';
 import { generateUUID } from '../utils';
@@ -57,6 +66,16 @@ export async function getUser(email: string): Promise<Array<User>> {
     return await db.select().from(user).where(eq(user.email, email));
   } catch (error) {
     console.error('Failed to get user from database');
+    throw error;
+  }
+}
+
+export async function getUserById({ id }: { id: string }): Promise<User | undefined> {
+  try {
+    const [dbUser] = await db.select().from(user).where(eq(user.id, id));
+    return dbUser;
+  } catch (error) {
+    console.error('Failed to get user by id from database');
     throw error;
   }
 }
@@ -920,15 +939,26 @@ export async function removeDocumentAccess({
 
 export async function updateUser({
   id,
-  data,
+  firstName,
+  lastName,
+  email,
+  onboardingCompletedAt,
 }: {
   id: string;
-  data: Partial<Omit<User, 'id' | 'email' | 'password'>>;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  onboardingCompletedAt?: Date;
 }) {
   try {
     return await db
       .update(user)
-      .set(data)
+      .set({
+        firstName,
+        lastName,
+        email,
+        onboardingCompletedAt,
+      })
       .where(eq(user.id, id));
   } catch (error) {
     console.error('Failed to update user in database');
@@ -1129,6 +1159,271 @@ export async function getThread({ id }: { id: string }) {
     return result[0];
   } catch (error) {
     console.error('Failed to get thread by id from database');
+    throw error;
+  }
+}
+
+export async function getActiveStripeProducts() {
+  try {
+    const productsWithPrices = await db
+      .select({
+        id: stripeProducts.id,
+        name: stripeProducts.name,
+        description: stripeProducts.description,
+        priceId: stripePrices.stripePriceId,
+        amount: stripePrices.unitAmount,
+        currency: stripePrices.currency,
+      })
+      .from(stripeProducts)
+      .innerJoin(stripePrices, eq(stripeProducts.id, stripePrices.productId))
+      .where(and(
+        eq(stripeProducts.active, true),
+        eq(stripePrices.active, true)
+      ));
+      
+    return productsWithPrices;
+  } catch (error) {
+    console.error('Failed to get active Stripe products with prices from database');
+    throw error;
+  }
+}
+
+export async function updateStripePrice({
+  stripePriceId,
+  unitAmount,
+  currency,
+  active,
+}: {
+  stripePriceId: string;
+  unitAmount: number;
+  currency: string;
+  active: boolean;
+}) {
+  try {
+    await db
+      .update(stripePrices)
+      .set({
+        unitAmount,
+        currency,
+        active,
+        updatedAt: new Date(),
+      })
+      .where(eq(stripePrices.stripePriceId, stripePriceId));
+  } catch (error) {
+    console.error('Failed to update Stripe price in database');
+    throw error;
+  }
+}
+
+export async function createStripeProduct({
+  stripeProductId,
+  name,
+  description,
+  active,
+  metadata,
+}: Omit<StripeProducts, 'id' | 'createdAt' | 'updatedAt'>) {
+  try {
+    const [product] = await db
+      .insert(stripeProducts)
+      .values({
+        stripeProductId,
+        name,
+        description,
+        active,
+        metadata,
+      })
+      .returning();
+    return product;
+  } catch (error) {
+    console.error('Failed to create Stripe product in database');
+    throw error;
+  }
+}
+
+export async function createStripePrice({
+  stripePriceId,
+  productId,
+  type,
+  currency,
+  unitAmount,
+  recurring,
+  active,
+  metadata,
+}: Omit<StripePrices, 'id' | 'createdAt' | 'updatedAt'>) {
+  try {
+    const [price] = await db
+      .insert(stripePrices)
+      .values({
+        stripePriceId,
+        productId,
+        type,
+        currency,
+        unitAmount,
+        recurring,
+        active,
+        metadata,
+      })
+      .returning();
+    return price;
+  } catch (error) {
+    console.error('Failed to create Stripe price in database');
+    throw error;
+  }
+}
+
+export async function getStripeProductByStripeId({ stripeProductId }: { stripeProductId: string }) {
+  try {
+    const [product] = await db
+      .select()
+      .from(stripeProducts)
+      .where(eq(stripeProducts.stripeProductId, stripeProductId));
+    return product;
+  } catch (error) {
+    console.error('Failed to get Stripe product by Stripe ID from database');
+    throw error;
+  }
+}
+
+export async function saveStripeCustomer({
+  userId,
+  stripeCustomerId,
+  email,
+  name,
+  metadata,
+}: Omit<StripeCustomers, 'id' | 'createdAt' | 'updatedAt'>) {
+  try {
+    return await db.insert(stripeCustomers).values({
+      userId,
+      stripeCustomerId,
+      email,
+      name,
+      metadata,
+    });
+  } catch (error) {
+    console.error('Failed to save Stripe customer in database');
+    throw error;
+  }
+}
+
+export async function saveStripePayment({
+  userId,
+  stripePaymentIntentId,
+  stripePriceId,
+  amount,
+  currency,
+  status,
+  paymentMethod,
+  metadata,
+}: Omit<StripePayments, 'id' | 'createdAt' | 'updatedAt'>) {
+  try {
+    return await db.insert(stripePayments).values({
+      userId,
+      stripePaymentIntentId,
+      stripePriceId,
+      amount,
+      currency,
+      status,
+      paymentMethod,
+      metadata,
+    });
+  } catch (error) {
+    console.error('Failed to save Stripe payment in database');
+    throw error;
+  }
+}
+
+export async function getStripePriceById({ id }: { id: number }) {
+  try {
+    const [price] = await db.select().from(stripePrices).where(eq(stripePrices.id, id));
+    return price;
+  } catch (error) {
+    console.error('Failed to get Stripe price by id from database');
+    throw error;
+  }
+}
+
+export async function getStripePriceByStripeId({ stripePriceId }: { stripePriceId: string }) {
+  try {
+    const [price] = await db
+      .select()
+      .from(stripePrices)
+      .where(eq(stripePrices.stripePriceId, stripePriceId));
+    return price;
+  } catch (error) {
+    console.error('Failed to get Stripe price by Stripe ID from database');
+    throw error;
+  }
+}
+
+export async function getStripeCustomerByUserId({ userId }: { userId: string }) {
+  try {
+    const [customer] = await db
+      .select()
+      .from(stripeCustomers)
+      .where(eq(stripeCustomers.userId, userId));
+    return customer;
+  } catch (error) {
+    console.error('Failed to get Stripe customer by user id from database');
+    throw error;
+  }
+}
+
+export async function getStripePaymentsByUserId({ userId }: { userId: string }) {
+  try {
+    return await db
+      .select()
+      .from(stripePayments)
+      .where(eq(stripePayments.userId, userId))
+      .orderBy(desc(stripePayments.createdAt));
+  } catch (error) {
+    console.error('Failed to get Stripe payments by user id from database');
+    throw error;
+  }
+}
+
+export async function updateStripePaymentStatus({
+  stripePaymentIntentId,
+  status,
+}: {
+  stripePaymentIntentId: string;
+  status: string;
+}) {
+  try {
+    return await db
+      .update(stripePayments)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(stripePayments.stripePaymentIntentId, stripePaymentIntentId));
+  } catch (error) {
+    console.error('Failed to update Stripe payment status in database');
+    throw error;
+  }
+}
+
+export async function getTotalStripeCustomerCount(): Promise<number> {
+  try {
+    console.log('Starting getTotalStripeCustomerCount query...');
+    
+    // Log the query we're about to execute
+    const query = db.select({ count: sql<number>`count(*)` }).from(stripeCustomers);
+    console.log('Query:', query.toSQL());
+    
+    const result = await query;
+    console.log('Query result:', result);
+    
+    if (!result || !result[0]) {
+      console.error('Unexpected query result structure:', result);
+      throw new Error('Invalid query result structure');
+    }
+    
+    console.log('Final count value:', result[0].count);
+    return result[0].count;
+  } catch (error: unknown) {
+    console.error('Error in getTotalStripeCustomerCount:', {
+      error,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined
+    });
     throw error;
   }
 }

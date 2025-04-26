@@ -7,6 +7,11 @@ import { db } from '@/lib/db';
 import { userOAuthCredentials } from '@/lib/db/schema';
 
 export async function DELETE(request: Request) {
+  // Check referrer to determine where to redirect
+  const referrer = request.headers.get('referer') || '';
+  const isFromSettings = referrer.includes('settings');
+  const isFromOnboarding = referrer.includes('onboarding');
+
   try {
     // Get the current user
     const session = await auth();
@@ -14,10 +19,6 @@ export async function DELETE(request: Request) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    // Check referrer to determine where to redirect
-    const referrer = request.headers.get('referer') || '';
-    const isFromSettings = referrer.includes('settings');
     
     // Get the user's OAuth credentials for Gmail
     const credentials = await getUserOAuthCredentials({
@@ -28,7 +29,9 @@ export async function DELETE(request: Request) {
     if (!credentials) {
       return NextResponse.json({ 
         error: 'No Gmail account connected',
-        redirectUrl: isFromSettings ? '/settings?tab=accounts' : '/'
+        redirectUrl: isFromSettings 
+          ? '/settings?error=No+Gmail+account+connected'
+          : '/onboarding?error=No+Gmail+account+connected'
       }, { status: 404 });
     }
     
@@ -36,7 +39,7 @@ export async function DELETE(request: Request) {
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/gmail/callback`
+      `${process.env.NEXT_PUBLIC_APP_URL}/api/gmail/callback`
     );
     
     // Set the credentials
@@ -88,7 +91,9 @@ export async function DELETE(request: Request) {
     
     return NextResponse.json({ 
       success: true,
-      redirectUrl: isFromSettings ? '/settings?tab=accounts' : '/',
+      redirectUrl: isFromSettings 
+        ? '/settings?success=Gmail+disconnected'
+        : '/onboarding?success=Gmail+disconnected',
       details: {
         accessTokenRevoked,
         refreshTokenRevoked,
@@ -99,7 +104,9 @@ export async function DELETE(request: Request) {
     console.error('Error disconnecting Gmail account:', error);
     return NextResponse.json({ 
       error: 'Failed to disconnect Gmail account',
-      redirectUrl: request.headers.get('referer')?.includes('settings') ? '/settings?tab=accounts' : '/'
+      redirectUrl: isFromSettings
+        ? '/settings?error=Failed+to+disconnect+Gmail'
+        : '/onboarding?error=Failed+to+disconnect+Gmail'
     }, { status: 500 });
   }
 } 

@@ -43,12 +43,14 @@ async function seedTestData() {
         id: userId,
         email: 'crmchattie@gmail.com',
         password: null,
-        fullName: null,
+        firstName: 'Test',
+        lastName: 'User',
         usageType: null,
         gmailConnected: false,
         referralSource: null,
         onboardingCompletedAt: null,
-        createdAt: new Date()
+        createdAt: new Date(),
+        stripeCustomerId: null
       };
     }
 
