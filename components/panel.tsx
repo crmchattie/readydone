@@ -244,6 +244,9 @@ export function Panel({
                 </div>
               </div>
 
+              {/* Show toggle in collapsed state */}
+              {toggleComponent}
+
               {/* New Chat button for chat sidebar */}
               {type === 'chat-sidebar' && (
                 <Tooltip>
@@ -260,9 +263,6 @@ export function Panel({
                   <TooltipContent side="right">New Chat</TooltipContent>
                 </Tooltip>
               )}
-
-              {/* Show toggle in collapsed state */}
-              {toggleComponent}
 
               {/* Chat Icons - Only for chat sidebar */}
               {type === 'chat-sidebar' && (
