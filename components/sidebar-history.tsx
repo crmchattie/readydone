@@ -79,25 +79,6 @@ export function getChatHistoryPaginationKey(
   return `/api/history?ending_before=${firstChatFromPage.id}&limit=${PAGE_SIZE}`;
 }
 
-// Custom hook to subscribe to sidebar panel state
-function useSidebarState() {
-  const { panelStates } = usePanel();
-  const [isCollapsed, setIsCollapsed] = useState(panelStates['chat-sidebar'] === 'collapsed');
-
-  useEffect(() => {
-    // Update local state when panel state changes
-    setIsCollapsed(panelStates['chat-sidebar'] === 'collapsed');
-    console.log('SidebarHistory - Panel state hook updated:', panelStates['chat-sidebar'], isCollapsed ? 'collapsed' : 'expanded');
-  }, [panelStates, isCollapsed]);
-
-  return isCollapsed;
-}
-
-interface ChatHistoryResponse {
-  chats: Chat[];
-  hasMore: boolean;
-}
-
 interface SidebarHistoryProps {
   isCollapsed?: boolean;
   selectedChatId?: string;
