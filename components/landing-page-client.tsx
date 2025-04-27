@@ -11,6 +11,9 @@ import {
   MessageSquare,
   Search,
   FileText,
+  Clock,
+  Sparkles,
+  Brain,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
@@ -84,10 +87,10 @@ export default function LandingPageClient() {
         <div className="container mx-auto px-4 sm:px-6 relative">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12 lg:gap-16">
             <div className="max-w-2xl space-y-5">
-            <div className="flex items-center space-x-4 mb-8 transform hover:scale-105 transition-transform duration-200">
+            <div className="flex items-center space-x-4 mb-8 hover:scale-105 transition-transform duration-200">
               <Image
                 src="/images/logo.png"
-                alt="Readydone Logo"
+                alt="ReadyDone Logo"
                 width={56}
                 height={56}
                 className="w-auto drop-shadow-md"
@@ -104,7 +107,7 @@ export default function LandingPageClient() {
                 <span className="block text-primary mt-2">AI-Powered Task Completion</span>
               </h1>
               <p className="text-xl text-muted-foreground">
-                From research to outreach, document creation to deal negotiation — Readydone handles complex tasks while you focus on making decisions.
+                From research to outreach, document creation to deal negotiation, ReadyDone handles complex tasks while you focus on making decisions.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <Button asChild size="lg" className="font-medium px-8">
@@ -114,7 +117,7 @@ export default function LandingPageClient() {
                   </Link>
                 </Button>
                 <Button asChild variant="outline" size="lg" className="font-medium">
-                  <Link href="#how-it-works">How It Works</Link>
+                  <Link href="#benefits">Key Benefits</Link>
                 </Button>
                 {/* <Button asChild variant="outline" size="lg" className="font-medium">
                   <Link href="/examples">See Examples</Link>
@@ -208,6 +211,68 @@ export default function LandingPageClient() {
             <div className="text-center">
               <div className="text-3xl font-bold text-primary mb-1">10+</div>
               <div className="text-muted-foreground">Use Cases</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Key Benefits Section */}
+      <section id="benefits" className="py-20 md:py-28 bg-background">
+        <div className="container mx-auto px-4 sm:px-6">
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <div className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+              Why Choose ReadyDone
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Key Benefits</h2>
+            <p className="text-xl text-muted-foreground">
+              Stop wasting time on tedious tasks. Let AI handle the heavy lifting while you focus on what matters.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <div className="bg-card p-8 rounded-xl shadow-sm border border-border hover:shadow-md transition-shadow">
+              <div className="flex flex-col items-center text-center">
+                <div className="size-16 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+                  <Clock className="size-8 text-primary" />
+                </div>
+                <h3 className="text-xl font-semibold mb-3">Save Hours of Time</h3>
+                <p className="text-muted-foreground">
+                  No more back-and-forth emails or endless research. Our AI handles outreach, follow-ups, and information gathering in minutes, not hours.
+                </p>
+                <div className="mt-4 bg-primary/5 text-primary px-3 py-1 rounded-full text-sm font-medium">
+                  Average 5+ hours saved per task
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-card p-8 rounded-xl shadow-sm border border-border hover:shadow-md transition-shadow">
+              <div className="flex flex-col items-center text-center">
+                <div className="size-16 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+                  <Sparkles className="size-8 text-primary" />
+                </div>
+                <h3 className="text-xl font-semibold mb-3">Better Results</h3>
+                <p className="text-muted-foreground">
+                  Get more options, better deals, and organized information. Our AI creates competitive situations and helps you make informed decisions.
+                </p>
+                <div className="mt-4 bg-primary/5 text-primary px-3 py-1 rounded-full text-sm font-medium">
+                  Compare multiple offers easily
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-card p-8 rounded-xl shadow-sm border border-border hover:shadow-md transition-shadow">
+              <div className="flex flex-col items-center text-center">
+                <div className="size-16 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+                  <Brain className="size-8 text-primary" />
+                </div>
+                <h3 className="text-xl font-semibold mb-3">Reduce Mental Load</h3>
+                <p className="text-muted-foreground">
+                  Stop juggling multiple tasks and conversations. Our AI keeps everything organized with smart documents and clear summaries.
+                </p>
+                <div className="mt-4 bg-primary/5 text-primary px-3 py-1 rounded-full text-sm font-medium">
+                  Everything in one place
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -364,13 +429,13 @@ export default function LandingPageClient() {
                   <li className="flex items-start">
                     <CheckCircle className="size-5 text-green-500 mr-3 mt-0.5 shrink-0" />
                     <span>
-                      Basic email templates
+                      Smart document & spreadsheet creation
                     </span>
                   </li>
                   <li className="flex items-start">
                     <CheckCircle className="size-5 text-green-500 mr-3 mt-0.5 shrink-0" />
                     <span>
-                      Simple organization tools
+                      AI-powered task automation
                     </span>
                   </li>
                   <li className="flex items-start">
@@ -396,11 +461,17 @@ export default function LandingPageClient() {
                     <span className="ml-2 text-gray-500">/month</span>
                   </div>
                 </div>
-                <p className="mt-4 text-muted-foreground">Everything you need for serious business outreach</p>
+                <p className="mt-4 text-muted-foreground">Everything you need to get things done</p>
               </div>
 
               <div className="border-t border-border bg-muted/50 px-8 py-6">
                 <ul className="space-y-4">
+                  <li className="flex items-start">
+                    <CheckCircle className="size-5 text-green-500 mr-3 mt-0.5 shrink-0" />
+                    <span>
+                      Everything in Free plan, <strong>plus:</strong>
+                    </span>
+                  </li>
                   <li className="flex items-start">
                     <CheckCircle className="size-5 text-green-500 mr-3 mt-0.5 shrink-0" />
                     <span>
@@ -410,25 +481,19 @@ export default function LandingPageClient() {
                   <li className="flex items-start">
                     <CheckCircle className="size-5 text-green-500 mr-3 mt-0.5 shrink-0" />
                     <span>
-                      Advanced AI email personalization
+                      Priority support with task optimization
                     </span>
                   </li>
                   <li className="flex items-start">
                     <CheckCircle className="size-5 text-green-500 mr-3 mt-0.5 shrink-0" />
                     <span>
-                      Smart docs and spreadsheets
-                    </span>
-                  </li>
-                  <li className="flex items-start">
-                    <CheckCircle className="size-5 text-green-500 mr-3 mt-0.5 shrink-0" />
-                    <span>
-                      Priority support
+                      Early access to new tools & features
                     </span>
                   </li>
                 </ul>
 
                 <Button asChild className="w-full mt-8" size="lg">
-                  <Link href={`${getStartedLink}?plan=pro`}>Upgrade to Pro</Link>
+                  <Link href={`${getStartedLink}?plan=pro`}>Get Started with Pro</Link>
                 </Button>
 
                 <p className="text-xs text-center text-muted-foreground mt-4">
@@ -588,30 +653,21 @@ export default function LandingPageClient() {
               Common Questions
             </div>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Frequently Asked Questions</h2>
-            <p className="text-xl text-muted-foreground">Everything you need to know about our car negotiation service</p>
+            <p className="text-xl text-muted-foreground">Everything you need to know about using ReadyDone</p>
           </div>
 
           <div className="max-w-3xl mx-auto grid gap-6">
             <div className="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
               <details className="group">
                 <summary className="flex items-center justify-between p-6 cursor-pointer">
-                  <h3 className="text-lg font-medium">How much does the service cost?</h3>
+                  <h3 className="text-lg font-medium">What kinds of tasks can ReadyDone handle?</h3>
                   <span className="ml-6 shrink-0 text-muted-foreground group-open:rotate-180 transition-transform">
                     <ChevronRight className="size-5 rotate-90" />
                   </span>
                 </summary>
                 <div className="px-6 pb-6 pt-0">
                   <p className="text-muted-foreground">
-                    Our service costs {userCount && userCount < 1000 ? (
-                      <>
-                        <span className="line-through">${yearlyPrice}</span>{" "}
-                        <span>${yearlyPrice}</span>
-                      </>
-                    ) : (
-                      `$${yearlyPrice}`
-                    )} per car search. There are no recurring charges or hidden fees.
-                    You pay once and get access to all features including AI-powered negotiation, dealer outreach, and
-                    response tracking.
+                    ReadyDone excels at tasks that involve research, outreach, and organization. Common uses include: getting car buying quotes, comparing insurance rates, researching and contacting venues, finding and vetting service providers, and negotiating with vendors. If your task involves gathering information, contacting multiple parties, or organizing responses, ReadyDone can help.
                   </p>
                 </div>
               </details>
@@ -620,16 +676,14 @@ export default function LandingPageClient() {
             <div className="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
               <details className="group">
                 <summary className="flex items-center justify-between p-6 cursor-pointer">
-                  <h3 className="text-lg font-medium">How much can I expect to save?</h3>
+                  <h3 className="text-lg font-medium">How does the AI actually complete my tasks?</h3>
                   <span className="ml-6 shrink-0 text-muted-foreground group-open:rotate-180 transition-transform">
                     <ChevronRight className="size-5 rotate-90" />
                   </span>
                 </summary>
                 <div className="px-6 pb-6 pt-0">
                   <p className="text-muted-foreground">
-                    Our customers save an average of $1,500+ on their car purchases and 5+ hours of their time. By reaching out to multiple
-                    dealerships simultaneously and creating a competitive environment, we help you secure the best
-                    possible price for your desired vehicle.
+                    After you describe your task, our AI creates a plan and takes action through several integrated tools. It uses smart search to find relevant information and contacts, manages professional communication through your connected email, and creates organized documents to track everything. You stay in control while the AI handles the time-consuming parts.
                   </p>
                 </div>
               </details>
@@ -638,14 +692,14 @@ export default function LandingPageClient() {
             <div className="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
               <details className="group">
                 <summary className="flex items-center justify-between p-6 cursor-pointer">
-                  <h3 className="text-lg font-medium">Is my data secure?</h3>
+                  <h3 className="text-lg font-medium">Is my data and email secure?</h3>
                   <span className="ml-6 shrink-0 text-muted-foreground group-open:rotate-180 transition-transform">
                     <ChevronRight className="size-5 rotate-90" />
                   </span>
                 </summary>
                 <div className="px-6 pb-6 pt-0">
                   <p className="text-muted-foreground">
-                    Yes, your privacy is our top priority. We handle all communications through our secure platform, keeping your personal email private and free from spam. You&apos;ll only receive important updates through our dashboard.
+                    Yes, security is our top priority. We use industry-standard encryption and OAuth2 for email integration. We never store your email password, and you can revoke access at any time. All data is encrypted at rest and in transit, and we only access the minimum information needed to complete your tasks.
                   </p>
                 </div>
               </details>
@@ -654,16 +708,30 @@ export default function LandingPageClient() {
             <div className="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
               <details className="group">
                 <summary className="flex items-center justify-between p-6 cursor-pointer">
-                  <h3 className="text-lg font-medium">How long does the process take?</h3>
+                  <h3 className="text-lg font-medium">What's included in the free plan?</h3>
                   <span className="ml-6 shrink-0 text-muted-foreground group-open:rotate-180 transition-transform">
                     <ChevronRight className="size-5 rotate-90" />
                   </span>
                 </summary>
                 <div className="px-6 pb-6 pt-0">
                   <p className="text-muted-foreground">
-                    The initial setup takes about 5 minutes where you&apos;ll provide your preferences and connect your
-                    email. After that, our AI begins reaching out immediately. Most users receive their first
-                    responses within 24-48 hours, and the full process typically completes within 3-5 days.
+                    The free plan includes 3 tasks per month with full access to our core features: AI-powered task completion, smart document creation, and email integration. Each task includes research, outreach, and organization capabilities. You can upgrade to unlimited tasks anytime with our Pro plan.
+                  </p>
+                </div>
+              </details>
+            </div>
+
+            <div className="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
+              <details className="group">
+                <summary className="flex items-center justify-between p-6 cursor-pointer">
+                  <h3 className="text-lg font-medium">How long does a typical task take?</h3>
+                  <span className="ml-6 shrink-0 text-muted-foreground group-open:rotate-180 transition-transform">
+                    <ChevronRight className="size-5 rotate-90" />
+                  </span>
+                </summary>
+                <div className="px-6 pb-6 pt-0">
+                  <p className="text-muted-foreground">
+                    The AI begins working immediately after you describe your task. Initial research and outreach typically happens within minutes. Most tasks see first responses within 24-48 hours, and complete results within 2-5 days depending on the complexity and external response times. Throughout the process, you'll have real-time updates and organized information.
                   </p>
                 </div>
               </details>
@@ -688,12 +756,12 @@ export default function LandingPageClient() {
                   <ChevronRight className="ml-2 size-4" />
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="lg">
+              {/* <Button asChild variant="outline" size="lg">
                 <Link href="#how-it-works">Learn More</Link>
               </Button>
               <Button asChild variant="outline" size="lg">
                 <Link href="/examples">See Examples</Link>
-              </Button>
+              </Button> */}
             </div>
             <p className="mt-6 text-sm text-muted-foreground">Join hundreds of users saving time with AI-powered outreach</p>
           </div>
