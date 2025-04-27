@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/app/(auth)/auth';
 import { google } from 'googleapis';
-import { saveUserOAuthCredentials, getUserOAuthCredentials } from '@/lib/db/queries';
+import { saveUserOAuthCredentials, getUserOAuthCredentials, updateUser } from '@/lib/db/queries';
 import { setupGmailWatch } from '@/lib/gmail/service';
 import { GMAIL_SCOPES_STRING } from '@/lib/utils';
 
@@ -55,6 +55,12 @@ export async function GET(request: Request) {
       refreshToken: tokens.refresh_token || existingCreds?.refreshToken || null,
       scopes: tokens.scope || GMAIL_SCOPES_STRING,
       expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null
+    });
+
+    // Update user's gmailConnected status
+    await updateUser({
+      id: session.user.id,
+      gmailConnected: true
     });
     
     // Set up Gmail watch notifications

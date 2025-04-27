@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/app/(auth)/auth';
 import { google } from 'googleapis';
-import { getUserOAuthCredentials } from '@/lib/db/queries';
+import { getUserOAuthCredentials, updateUser } from '@/lib/db/queries';
 import { eq, and } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { userOAuthCredentials } from '@/lib/db/schema';
@@ -88,6 +88,12 @@ export async function DELETE(request: Request) {
           eq(userOAuthCredentials.providerName, 'gmail')
         )
       );
+
+    // Update user's gmailConnected status
+    await updateUser({
+      id: session.user.id,
+      gmailConnected: false
+    });
     
     return NextResponse.json({ 
       success: true,

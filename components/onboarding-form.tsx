@@ -49,11 +49,29 @@ export function OnboardingForm() {
   useEffect(() => {
     const checkInitialData = async () => {
       try {
+        // Handle Gmail connection status from URL parameters first
+        const urlParams = new URLSearchParams(window.location.search);
+        const success = urlParams.get('success');
+        const error = urlParams.get('error');
+        
+        let isConnected = false;
+        
+        if (success) {
+          toast({ type: 'success', description: success.replace(/\+/g, ' ') });
+          isConnected = true;
+          setCurrentStep(1);
+        }
+        
+        if (error) {
+          toast({ type: 'error', description: error.replace(/\+/g, ' ') });
+          setCurrentStep(1);
+        }
+
         // Check Gmail connection
         const response = await fetch('/api/gmail/status');
         if (response.ok) {
           const data = await response.json();
-          setFormData(prev => ({ ...prev, gmailConnected: data.connected }));
+          isConnected = data.connected;
         }
 
         // Check if user data exists
@@ -75,7 +93,14 @@ export function OnboardingForm() {
         const storedData = localStorage.getItem('onboardingFormData');
         if (storedData) {
           const parsedData = JSON.parse(storedData);
-          setFormData(prev => ({ ...prev, ...parsedData }));
+          setFormData(prev => ({ 
+            ...prev, 
+            ...parsedData,
+            // Ensure Gmail connection status takes precedence
+            gmailConnected: isConnected 
+          }));
+        } else {
+          setFormData(prev => ({ ...prev, gmailConnected: isConnected }));
         }
       } catch (error) {
         console.error('Error checking initial data:', error);
@@ -84,25 +109,6 @@ export function OnboardingForm() {
     };
 
     checkInitialData();
-
-    // Handle Gmail connection status from URL parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const success = urlParams.get('success');
-    const error = urlParams.get('error');
-    
-    if (success) {
-      toast({ type: 'success', description: success.replace(/\+/g, ' ') });
-      setFormData(prev => ({ ...prev, gmailConnected: true }));
-      // Move to step 2 (Gmail connection step) after successful connection
-      setCurrentStep(1);
-    }
-    
-    if (error) {
-      toast({ type: 'error', description: error.replace(/\+/g, ' ') });
-      setFormData(prev => ({ ...prev, gmailConnected: false }));
-      // Move to step 2 (Gmail connection step) after failed connection
-      setCurrentStep(1);
-    }
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,7 +143,24 @@ export function OnboardingForm() {
     e.preventDefault();
     
     if (currentStep < STEPS.length - 1) {
+      // Validate required fields for the current step
+      if (currentStep === 0 && (!formData.firstName || !formData.lastName)) {
+        toast({ type: 'error', description: 'Please fill in all required fields.' });
+        return;
+      }
+      
       setCurrentStep((prev) => prev + 1);
+      return;
+    }
+
+    // Validate final step fields
+    if (!formData.usageType) {
+      toast({ type: 'error', description: 'Please select how you will use this service.' });
+      return;
+    }
+
+    if (!formData.referralSource) {
+      toast({ type: 'error', description: 'Please let us know how you found us.' });
       return;
     }
 

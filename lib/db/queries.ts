@@ -943,23 +943,30 @@ export async function updateUser({
   lastName,
   email,
   onboardingCompletedAt,
+  gmailConnected,
+  usageType,
+  referralSource,
 }: {
   id: string;
   firstName?: string;
   lastName?: string;
   email?: string;
   onboardingCompletedAt?: Date;
+  gmailConnected?: boolean;
+  usageType?: 'personal' | 'business' | 'both';
+  referralSource?: string;
 }) {
   try {
-    return await db
-      .update(user)
-      .set({
-        firstName,
-        lastName,
-        email,
-        onboardingCompletedAt,
-      })
-      .where(eq(user.id, id));
+    const values: Record<string, any> = {};
+    if (firstName !== undefined) values.firstName = firstName;
+    if (lastName !== undefined) values.lastName = lastName;
+    if (email !== undefined) values.email = email;
+    if (onboardingCompletedAt !== undefined) values.onboardingCompletedAt = onboardingCompletedAt;
+    if (gmailConnected !== undefined) values.gmailConnected = gmailConnected;
+    if (usageType !== undefined) values.usageType = usageType;
+    if (referralSource !== undefined) values.referralSource = referralSource;
+
+    await db.update(user).set(values).where(eq(user.id, id));
   } catch (error) {
     console.error('Failed to update user in database');
     throw error;
