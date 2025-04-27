@@ -708,7 +708,7 @@ export default function LandingPageClient() {
             <div className="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
               <details className="group">
                 <summary className="flex items-center justify-between p-6 cursor-pointer">
-                  <h3 className="text-lg font-medium">What's included in the free plan?</h3>
+                  <h3 className="text-lg font-medium">What&apos;s included in the free plan?</h3>
                   <span className="ml-6 shrink-0 text-muted-foreground group-open:rotate-180 transition-transform">
                     <ChevronRight className="size-5 rotate-90" />
                   </span>
@@ -731,7 +731,7 @@ export default function LandingPageClient() {
                 </summary>
                 <div className="px-6 pb-6 pt-0">
                   <p className="text-muted-foreground">
-                    The AI begins working immediately after you describe your task. Initial research and outreach typically happens within minutes. Most tasks see first responses within 24-48 hours, and complete results within 2-5 days depending on the complexity and external response times. Throughout the process, you'll have real-time updates and organized information.
+                    The AI begins working immediately after you describe your task. Initial research and outreach typically happens within minutes. Most tasks see first responses within 24-48 hours, and complete results within 2-5 days depending on the complexity and external response times. Throughout the process, you&apos;ll have real-time updates and organized information.
                   </p>
                 </div>
               </details>
