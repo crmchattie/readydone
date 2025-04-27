@@ -93,11 +93,11 @@ export default function LandingPageClient() {
                 <Star className="mr-1 size-4" /> Trusted by {userCount ? `${Number(userCount) + 100}+` : '100+'} users
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight">
-                Let AI Handle Your
-                <span className="block text-primary mt-2">Professional Outreach</span>
+                Get Things Done with
+                <span className="block text-primary mt-2">AI-Powered Task Completion</span>
               </h1>
               <p className="text-xl text-muted-foreground">
-                From finding the right providers to negotiating deals and managing responses — Plot handles the tedious work while you focus on making decisions.
+                From research to outreach, document creation to deal negotiation — Readydone handles complex tasks while you focus on making decisions.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <Button asChild size="lg" className="font-medium px-8">
@@ -237,15 +237,15 @@ export default function LandingPageClient() {
                   <div className="space-y-2 text-sm text-left">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Task:</span>
-                      <span>Insurance Quotes</span>
+                      <span>Find & Compare Options</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Type:</span>
-                      <span>Auto + Home</span>
+                      <span>Car Shopping</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Region:</span>
-                      <span>California</span>
+                      <span className="text-muted-foreground">Status:</span>
+                      <span className="text-green-600">In Progress</span>
                     </div>
                   </div>
                 </div>
@@ -295,21 +295,21 @@ export default function LandingPageClient() {
                 </p>
                 <div className="p-4 bg-card rounded-lg shadow-sm border border-border w-full h-[200px] flex flex-col">
                   <div className="flex items-center mb-3">
-                    <Table className="size-5 text-primary mr-2" />
-                    <span className="font-medium">Smart Organization</span>
+                    <FileText className="size-5 text-primary mr-2" />
+                    <span className="font-medium">Task Progress</span>
                   </div>
                   <div className="space-y-2 text-sm text-left grow">
                     <div className="flex items-center gap-2 mb-4">
-                      <FileText className="size-4 text-primary" />
-                      <span>Quote Comparison</span>
+                      <CheckCircle className="size-4 text-green-600" />
+                      <span>Research Complete</span>
                     </div>
-                    <div className="space-y-1">
-                      <div className="h-2 bg-primary/20 rounded w-3/4"></div>
-                      <div className="h-2 bg-primary/20 rounded w-1/2"></div>
-                      <div className="h-2 bg-primary/20 rounded w-2/3"></div>
+                    <div className="flex items-center gap-2 mb-4">
+                      <CheckCircle className="size-4 text-green-600" />
+                      <span>Documents Created</span>
                     </div>
-                    <div className="mt-4 text-center text-green-600">
-                      All data organized
+                    <div className="flex items-center gap-2">
+                      <Mail className="size-4 text-primary" />
+                      <span>Outreach In Progress</span>
                     </div>
                   </div>
                 </div>
@@ -451,13 +451,13 @@ export default function LandingPageClient() {
               <div className="flex items-start">
                 <div className="mr-5 mt-1">
                   <div className="size-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                    <Search className="size-6 text-primary" />
+                    <MessageSquare className="size-6 text-primary" />
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-3">Smart Search & Analysis</h3>
+                  <h3 className="text-xl font-semibold mb-3">AI Task Chat</h3>
                   <p className="text-muted-foreground">
-                    Our AI finds the right providers based on your needs, using real-time data and advanced filtering to ensure you get the best options.
+                    Simply describe what you need in natural language. Our AI understands your goal, creates a plan, and takes action on your behalf.
                   </p>
                 </div>
               </div>
@@ -467,13 +467,13 @@ export default function LandingPageClient() {
               <div className="flex items-start">
                 <div className="mr-5 mt-1">
                   <div className="size-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                    <Mail className="size-6 text-primary" />
+                    <Search className="size-6 text-primary" />
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-3">AI-Powered Communication</h3>
+                  <h3 className="text-xl font-semibold mb-3">Smart Search & Outreach</h3>
                   <p className="text-muted-foreground">
-                    Let our AI craft personalized messages that get responses. Works with your email to keep everything professional and organized.
+                    Our AI finds the right information and contacts, then manages professional communication through your email to get things done.
                   </p>
                 </div>
               </div>
@@ -487,9 +487,9 @@ export default function LandingPageClient() {
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-3">Smart Documents</h3>
+                  <h3 className="text-xl font-semibold mb-3">Smart Documents & Spreadsheets</h3>
                   <p className="text-muted-foreground">
-                    Every task comes with intelligent docs and spreadsheets to track quotes, compare options, and organize responses - all integrated into your workflow.
+                    Every task comes with AI-generated documents and spreadsheets to track information, compare options, and organize your workflow.
                   </p>
                 </div>
               </div>
@@ -499,13 +499,13 @@ export default function LandingPageClient() {
               <div className="flex items-start">
                 <div className="mr-5 mt-1">
                   <div className="size-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                    <MessageSquare className="size-6 text-primary" />
+                    <Mail className="size-6 text-primary" />
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-3">Organized Responses</h3>
+                  <h3 className="text-xl font-semibold mb-3">Integrated Email Flow</h3>
                   <p className="text-muted-foreground">
-                    All responses are automatically organized into clear threads, with AI-generated summaries to help you make decisions faster.
+                    Securely connect your Gmail to let our AI manage professional communications, with all responses organized in clear threads.
                   </p>
                 </div>
               </div>
