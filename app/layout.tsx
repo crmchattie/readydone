@@ -8,8 +8,8 @@ import AuthProvider from '@/components/session-provider';
 import './globals.css';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://plotliving.com'),
-  title: 'Plot',
+  metadataBase: new URL('https://readydone.ai'),
+  title: 'ReadyDone',
   description: 'Skip the search. Skip the email. Just ask.',
 };
 

@@ -1,21 +1,16 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import {
   ChevronRight,
   Mail,
-  Clock,
-  DollarSign,
-  BarChart,
   CheckCircle,
   Star,
-  Car,
   MessageSquare,
-  Shield,
   Search,
   FileText,
-  Table
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
@@ -60,14 +55,14 @@ export default function LandingPageClient() {
       name: "Sarah K.",
       role: "Car Buyer",
       quote:
-        "Plot saved me hours of research and emails. I got competitive quotes from 5 dealerships without the usual back-and-forth hassle. The AI even helped me compare the offers!",
+        "ReadyDone saved me hours of research and emails. I got competitive quotes from 5 dealerships without the usual back-and-forth hassle. The AI even helped me compare the offers!",
       savings: "5+ hours saved",
       image: "/placeholder.svg?height=80&width=80",
     },
     {
       name: "Mike R.",
       role: "Insurance Shopper",
-      quote: "Getting insurance quotes used to be a nightmare. Plot contacted multiple providers and organized all the responses. I found better coverage for less money.",
+      quote: "Getting insurance quotes used to be a nightmare. ReadyDone contacted multiple providers and organized all the responses. I found better coverage for less money.",
       savings: "$400/year",
       image: "/placeholder.svg?height=80&width=80",
     },
@@ -75,7 +70,7 @@ export default function LandingPageClient() {
       name: "Jessica T.",
       role: "Event Planner",
       quote:
-        "As a wedding planner, I use Plot to reach out to vendors and venues. It saves me so much time on initial outreach and keeps all the responses organized.",
+        "As a wedding planner, I use ReadyDone to reach out to vendors and venues. It saves me so much time on initial outreach and keeps all the responses organized.",
       savings: "10+ hours/week",
       image: "/placeholder.svg?height=80&width=80",
     },
@@ -89,6 +84,18 @@ export default function LandingPageClient() {
         <div className="container mx-auto px-4 sm:px-6 relative">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12 lg:gap-16">
             <div className="max-w-2xl space-y-5">
+            <div className="flex items-center space-x-4 mb-8 transform hover:scale-105 transition-transform duration-200">
+              <Image
+                src="/images/logo.png"
+                alt="Readydone Logo"
+                width={56}
+                height={56}
+                className="w-auto drop-shadow-md"
+              />
+              <span className="ml-3 text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/80">
+              ReadyDone
+              </span>
+            </div>
               <div className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-2">
                 <Star className="mr-1 size-4" /> Trusted by {userCount ? `${Number(userCount) + 100}+` : '100+'} users
               </div>
@@ -754,7 +761,7 @@ export default function LandingPageClient() {
             </div>
           </div>
           <div className="mt-12 pt-8 border-t border-muted text-center text-sm">
-            <p>© {new Date().getFullYear()} Plot. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} ReadyDone. All rights reserved.</p>
           </div>
         </div>
       </footer>

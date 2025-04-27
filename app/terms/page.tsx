@@ -142,7 +142,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-2xl font-semibold mb-3">10. Contact Us</h2>
           <p>
-            If you have any questions about these Terms and Conditions, please contact us at info@plotlife.com
+            If you have any questions about these Terms and Conditions, please contact us at cory@readydone.ai
           </p>
         </section>
       </div>

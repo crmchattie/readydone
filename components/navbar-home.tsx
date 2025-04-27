@@ -31,12 +31,12 @@ export default function NavbarHome() {
             <Link href="/home" className="flex items-center space-x-2">
               <Image
                 src="/images/logo.png"
-                alt="Plot Logo"
+                alt="ReadyDone Logo"
                 width={40}
                 height={40}
                 className="w-auto"
               />
-              <span className="ml-3 text-3xl font-semibold">Plot</span>
+              <span className="ml-3 text-3xl font-semibold">ReadyDone</span>
             </Link>
           </div>
 
