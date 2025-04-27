@@ -771,7 +771,7 @@ export default function LandingPageClient() {
       {/* Footer */}
       <footer className="py-12 bg-card text-muted-foreground border-t border-border">
         <div className="container mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
               <h3 className="text-foreground font-semibold mb-4">Pages</h3>
               <ul className="space-y-2">
@@ -783,16 +783,6 @@ export default function LandingPageClient() {
                 <li>
                   <Link href="/register" className="hover:text-foreground transition-colors">
                     Register
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/pricing" className="hover:text-foreground transition-colors">
-                    Pricing
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/examples" className="hover:text-foreground transition-colors">
-                    Examples
                   </Link>
                 </li>
               </ul>
@@ -816,14 +806,14 @@ export default function LandingPageClient() {
               <h3 className="text-foreground font-semibold mb-4">Support</h3>
               <ul className="space-y-2">
                 <li>
-                  <a href="mailto:support@plotliving.com" className="hover:text-foreground transition-colors">
+                  <a href="mailto:cory@readydone.ai" className="hover:text-foreground transition-colors">
                     Contact Us
                   </a>
                 </li>
                 <li>
-                  <Link href="/help" className="hover:text-foreground transition-colors">
-                    Help Center
-                  </Link>
+                  <a href="#benefits" className="hover:text-foreground transition-colors">
+                    Key Benefits
+                  </a>
                 </li>
               </ul>
             </div>
