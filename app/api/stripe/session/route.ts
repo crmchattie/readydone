@@ -1,14 +1,7 @@
 import { NextResponse } from 'next/server';
-import { Stripe } from 'stripe';
 import { auth } from '@/app/(auth)/auth';
-import { db } from '@/lib/db';
-import { cars } from '@/lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { stripe } from '@/lib/stripe';
 
-// Initialize Stripe with the secret key
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-02-24.acacia',
-});
 
 export async function GET(request: Request) {
   try {

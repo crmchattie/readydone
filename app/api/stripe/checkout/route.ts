@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { Stripe } from 'stripe';
 import {
   getStripePriceById,
   getStripePriceByStripeId,
@@ -7,11 +6,7 @@ import {
   getStripeCustomerByUserId
 } from '@/lib/db/queries';
 import { auth } from '@/app/(auth)/auth';
-
-// Initialize Stripe with the secret key
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-03-31.basil',
-});
+import { stripe } from '@/lib/stripe';
 
 // Promotion code for early adopters
 const EARLY_ADOPTER_PROMO_CODE = 'LAUNCHOFFER';
