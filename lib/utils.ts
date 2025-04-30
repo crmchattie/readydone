@@ -234,3 +234,39 @@ export const capitalizeWords = (string: string | undefined | null) => {
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 };
+
+export const executeWithRetry = async <T>(
+  dbOperation: () => Promise<T>,
+  maxRetries = 3
+): Promise<T> => {
+  let lastError;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      // Show loading state to user if this is a retry
+      if (attempt > 0) {
+        console.log(`Reconnecting to database (attempt ${attempt + 1}/${maxRetries})...`);
+      }
+      
+      return await dbOperation();
+    } catch (error) {
+      lastError = error;
+      
+      // Only retry on connection-related errors
+      if (error instanceof Error && 
+         (error.message.includes('timeout') || 
+          error.message.includes('connection'))) {
+        
+        // Exponential backoff: 500ms, 1000ms, 2000ms, etc.
+        const delay = Math.min(500 * Math.pow(2, attempt), 5000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      // For other errors, don't retry
+      throw error;
+    }
+  }
+  
+  throw lastError;
+};

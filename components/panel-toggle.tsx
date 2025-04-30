@@ -12,9 +12,10 @@ interface PanelToggleProps {
   label: string;
   className?: string;
   onToggle?: (expanded: boolean) => void;
+  hidden?: boolean;
 }
 
-export function PanelToggle({ panel, direction, label, className, onToggle }: PanelToggleProps) {
+export function PanelToggle({ panel, direction, label, className, onToggle, hidden }: PanelToggleProps) {
   const { 
     toggleCollapsed, 
     isPanelVisible, 
@@ -51,6 +52,9 @@ export function PanelToggle({ panel, direction, label, className, onToggle }: Pa
     
     return false;
   }, [isSidebar, isMobile, activeMobilePanel, panel, isCollapsed, visiblePanels, getPanelCategory, getPanelState]);
+
+  // If hidden prop is true, don't render anything
+  if (hidden) return null;
 
   // Handle toggle button click
   const handleToggleClick = () => {

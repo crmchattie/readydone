@@ -12,6 +12,7 @@ import {
   integer,
   serial
 } from 'drizzle-orm/pg-core';
+import { z } from 'zod';
 
 export const user = pgTable('User', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
@@ -335,3 +336,31 @@ export const stripePayments = pgTable('StripePayments', {
 });
 
 export type StripePayments = InferSelectModel<typeof stripePayments>;
+
+export const resources = pgTable('Resource', {
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  userId: uuid('userId')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  content: text('content').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+export type Resource = InferSelectModel<typeof resources>;
+
+export const embeddings = pgTable('Embedding', {
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  userId: uuid('userId')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  resourceId: uuid('resourceId')
+    .notNull()
+    .references(() => resources.id, { onDelete: 'cascade' }),
+  content: text('content').notNull(),
+  embedding: json('embedding').notNull(), // Store embeddings as JSON array
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+});
+
+export type Embedding = InferSelectModel<typeof embeddings>;

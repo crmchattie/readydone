@@ -25,14 +25,16 @@ export const myProvider = isTestEnvironment
     })
   : customProvider({
       languageModels: {
-        'chat-model-small': openai('gpt-4o-mini'),
-        'chat-model-large': openai('gpt-4o'),
+        'chat-model-small': openai('gpt-4.1-mini'),
+        'chat-model-large': openai('gpt-4.1'),
+        'chat-model-embeddings-large': openai('text-embedding-3-large'),
+        'chat-model-embeddings-small': openai('text-embedding-3-small'),
         'chat-model-reasoning': wrapLanguageModel({
           model: fireworks('accounts/fireworks/models/deepseek-r1'),
           middleware: extractReasoningMiddleware({ tagName: 'think' }),
         }),
-        'title-model': openai('gpt-4-turbo'),
-        'artifact-model': openai('gpt-4o-mini'),
+        'title-model': openai('gpt-4.1-mini'),
+        'artifact-model': openai('gpt-4.1-mini'),
         'chat-model-grok': xai('grok-2-1212'),
         'chat-model-reasoning-grok': wrapLanguageModel({
           model: xai('grok-3-mini-beta'),

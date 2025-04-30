@@ -114,7 +114,7 @@ export function Panel({
   const router = useRouter();
   const params = useParams();
   const { selectedThreadId, setSelectedThreadId, setThreads: setNavigationThreads } = useNavigation();
-  const { isPanelVisible, visiblePanels, getPanelState, showPanel, getPanelCategory, isMobile, activeMobilePanel } = usePanel();
+  const { isPanelVisible, visiblePanels, getPanelState, showPanel, getPanelCategory, isMobile, activeMobilePanel, setPanelState } = usePanel();
   const { setTheme, theme } = useTheme();
   const isVisible = isPanelVisible(type);
   const panelState = getPanelState(type);
@@ -122,6 +122,21 @@ export function Panel({
   
   // Get the current chat ID from the URL params
   const chatId = typeof params?.id === 'string' ? params.id : null;
+
+  // Hide thread panels when threads are empty or null
+  useEffect(() => {
+    if (type === 'threads-sidebar' || type === 'thread-chat') {
+      if (!threads || threads.length === 0) {
+        setPanelState(type, 'hidden');
+      } else if (panelState === 'hidden') {
+        setPanelState(type, 'collapsed');
+      }
+    }
+  }, [type, threads, panelState, setPanelState]);
+
+  // Check if thread panels are hidden
+  const areThreadPanelsHidden = getPanelState('threads-sidebar') === 'hidden' && 
+                               getPanelState('thread-chat') === 'hidden';
 
   // Fetch threads when the threads sidebar becomes visible or when current chat changes
   useEffect(() => {
@@ -151,6 +166,7 @@ export function Panel({
       panel={type} 
       direction={toggleDirection} 
       label={toggleLabel} 
+      hidden={type === 'chat' && areThreadPanelsHidden}
     />
   );
 

@@ -52,6 +52,8 @@ export default function LandingPageClient() {
   }, [])
 
   const getStartedLink = status === "authenticated" ? "/" : "/register"
+  const getStartedText = "Get Started"
+  const getStartedTextPro = "Get Started with Pro"
 
   const testimonials = [
     {
@@ -82,7 +84,7 @@ export default function LandingPageClient() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
-      <section className="relative py-20 md:py-32 overflow-hidden bg-gradient-to-b from-background/50 to-background">
+      <section className="relative py-20 md:py-32 overflow-hidden bg-gradient-to-b from-background/50 to-background pt-24">
         <div className="absolute inset-0 bg-[url('/placeholder.svg?height=1080&width=1920')] bg-cover bg-center opacity-5"></div>
         <div className="container mx-auto px-4 sm:px-6 relative">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12 lg:gap-16">
@@ -112,7 +114,7 @@ export default function LandingPageClient() {
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <Button asChild size="lg" className="font-medium px-8">
                   <Link href={getStartedLink}>
-                    Get Started Free
+                    {getStartedText}
                     <ChevronRight className="ml-2 size-4" />
                   </Link>
                 </Button>
@@ -447,7 +449,7 @@ export default function LandingPageClient() {
                 </ul>
 
                 <Button asChild className="w-full mt-8" size="lg" variant="outline">
-                  <Link href={getStartedLink}>Get Started Free</Link>
+                  <Link href={getStartedLink}>{getStartedText}</Link>
                 </Button>
               </div>
             </div>
@@ -493,7 +495,7 @@ export default function LandingPageClient() {
                 </ul>
 
                 <Button asChild className="w-full mt-8" size="lg">
-                  <Link href={`${getStartedLink}?plan=pro`}>Get Started with Pro</Link>
+                  <Link href={`${getStartedLink}?plan=pro`}>{getStartedTextPro}</Link>
                 </Button>
 
                 <p className="text-xs text-center text-muted-foreground mt-4">
@@ -752,7 +754,7 @@ export default function LandingPageClient() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button asChild size="lg" className="px-8">
                 <Link href={getStartedLink}>
-                  Get Started Free
+                {getStartedText}
                   <ChevronRight className="ml-2 size-4" />
                 </Link>
               </Button>

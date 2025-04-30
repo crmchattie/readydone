@@ -48,10 +48,15 @@ import {
   stripeCustomers,
   type StripeCustomers,
   stripePayments,
-  type StripePayments
+  type StripePayments,
+  resources,
+  type Resource,
+  embeddings,
+  type Embedding
 } from './schema';
 import type { ArtifactKind } from '@/components/artifact';
-import { generateUUID } from '../utils';
+import { generateUUID, executeWithRetry } from '../utils';
+import { generateEmbeddings, generateEmbedding } from '../ai/embedding';
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -1434,3 +1439,90 @@ export async function getTotalStripeCustomerCount(): Promise<number> {
     throw error;
   }
 }
+
+export async function createResource({
+  content,
+  url,
+  title,
+  userId,
+}: {
+  content: string;
+  url: string;
+  title: string;
+  userId: string;
+}): Promise<Resource> {
+  try {
+    const [resource] = await db
+      .insert(resources)
+      .values({ content, userId })
+      .returning();
+
+    console.log("Processing resource:", { url, title });
+
+    const embeddingData = await generateEmbeddings(content, { url, title });
+    await Promise.all(
+      embeddingData.map((embedding: { content: string; embedding: number[] }) =>
+        db.insert(embeddings).values({
+          resourceId: resource.id,
+          userId,
+          content: embedding.content,
+          embedding: embedding.embedding,
+        })
+      )
+    );
+
+    return resource;
+  } catch (error) {
+    console.error('Failed to create resource in database');
+    throw error;
+  }
+}
+
+export async function deleteAllResources({ userId }: { userId: string }): Promise<void> {
+  try {
+    // Delete from embeddings table first due to foreign key constraints
+    await db.delete(embeddings).where(eq(embeddings.userId, userId));
+
+    // Then delete from resources table
+    await db.delete(resources).where(eq(resources.userId, userId));
+  } catch (error) {
+    console.error('Failed to delete all resources from database');
+    throw error;
+  }
+}
+
+export const findRelevantContent = async (
+  userQuery: string,
+  userId: string,
+  limit: number = 5
+): Promise<Array<{ content: string; similarity: number }>> => {
+  return executeWithRetry(async () => {
+    // Generate embedding for the user's query
+    const userQueryEmbedding = await generateEmbedding(userQuery);
+
+    // Calculate similarity using cosine distance
+    const similarity = sql<number>`1 - (${sql`${embeddings.embedding} <-> ${userQueryEmbedding}`})`;
+
+    // Fetch relevant content from the database, filtering by userId
+    const similarContent = await db
+      .select({
+        content: embeddings.content,
+        similarity
+      })
+      .from(embeddings)
+      .where(
+        and(
+          eq(embeddings.userId, userId),
+          gt(similarity, 0.5) // Only consider results with similarity > 0.5
+        )
+      )
+      .orderBy(desc(similarity))
+      .limit(limit);
+
+    // Transform the results into a structured format
+    return similarContent.map(item => ({
+      content: item.content.trim(),
+      similarity: parseFloat(item.similarity.toFixed(2))
+    }));
+  });
+};

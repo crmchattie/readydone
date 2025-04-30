@@ -21,10 +21,16 @@ import {
   getTrailingMessageId,
 } from '@/lib/utils';
 import { generateTitleFromUserMessage } from '../../actions';
+import { retrieveMemory, storeMemory } from '@/lib/ai/tools/with-memory';
 import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
-import { getWeather } from '@/lib/ai/tools/get-weather';
+import { searchWeb } from '@/lib/ai/tools/search-web';
+import { searchPlacesTool } from '@/lib/ai/tools/search-places';
+import { scrapeWebsite } from '@/lib/ai/tools/scrape-website';
+import { planTask } from '@/lib/ai/tools/plan-task';
+import { findEmail } from '@/lib/ai/tools/find-email';
+import { findPhone } from '@/lib/ai/tools/find-phone';
 import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
 
@@ -96,21 +102,35 @@ export async function POST(request: Request) {
             selectedChatModel === 'chat-model-reasoning'
               ? []
               : [
-                  'getWeather',
+                  'planTask',
+                  'retrieveMemory',
+                  'storeMemory',
                   'createDocument',
                   'updateDocument',
                   'requestSuggestions',
+                  'searchWeb',
+                  'searchPlaces',
+                  'scrapeWebsite',
+                  'findEmail',
+                  'findPhone',
                 ],
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_generateMessageId: generateUUID,
           tools: {
-            getWeather,
+            planTask: planTask,
+            retrieveMemory: retrieveMemory({ messages, userId: session.user!.id! }),
+            storeMemory: storeMemory({ messages, userId: session.user!.id! }),
             createDocument: createDocument({ session, dataStream }),
             updateDocument: updateDocument({ session, dataStream }),
             requestSuggestions: requestSuggestions({
               session,
               dataStream,
             }),
+            searchWeb: searchWeb,
+            searchPlaces: searchPlacesTool,
+            scrapeWebsite: scrapeWebsite,
+            findEmail: findEmail,
+            findPhone: findPhone,
           },
           onFinish: async ({ response }) => {
             if (session.user?.id) {

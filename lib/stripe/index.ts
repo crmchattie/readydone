@@ -1,5 +1,5 @@
 import { Stripe } from 'stripe';
-import { User } from './db/schema';
+import { User } from '../db/schema';
 import {
   getStripeCustomerByUserId,
   saveStripeCustomer,
@@ -11,7 +11,7 @@ import {
   createStripeProduct,
   createStripePrice,
   updateStripePrice
-} from './db/queries';
+} from '../db/queries';
 
 // Initialize Stripe with the secret key from environment variables
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {

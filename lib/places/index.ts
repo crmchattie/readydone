@@ -77,7 +77,7 @@ async function fetchPlaceDetails(placeId: string): Promise<any> {
  * @param options Search options including query, coordinates, and type
  */
 export async function searchPlaces(options: SearchPlacesOptions): Promise<SerperPlacesResponse> {
-  const { query, latitude, longitude, radius = 50000, type = 'car_dealer' } = options;
+  const { query, latitude, longitude, radius = 50000, type } = options;
   console.log('SearchPlaces Request:', { query, latitude, longitude, radius, type });
 
   let allPlaces: any[] = [];
@@ -86,7 +86,7 @@ export async function searchPlaces(options: SearchPlacesOptions): Promise<Serper
   do {
     try {
       const placesResponse = await axios.get(
-        `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&location=${latitude},${longitude}&radius=${radius}&type=${type}&key=${GOOGLE_PLACES_API}` +
+        `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&location=${latitude},${longitude}&radius=${radius}${type ? `&type=${type}` : ''}&key=${GOOGLE_PLACES_API}` +
         (nextPageToken ? `&pagetoken=${nextPageToken}` : '')
       );
 
@@ -120,7 +120,8 @@ export async function searchPlaces(options: SearchPlacesOptions): Promise<Serper
             ratingCount: place.user_ratings_total || 0,
             category: place.types[0] || '',
             phoneNumber: place.formatted_phone_number || '',
-            website: details.website
+            website: details.website,
+            place_id: place.place_id
           });
         }
       }
@@ -143,13 +144,13 @@ export async function searchPlaces(options: SearchPlacesOptions): Promise<Serper
  * @param options Search options including coordinates, radius, and type
  */
 export async function nearbySearch(options: NearbySearchOptions): Promise<SerperPlacesResponse> {
-  const { latitude, longitude, radius = 50000, type = 'car_dealer' } = options;
+  const { latitude, longitude, radius = 50000, type } = options;
   
   console.log('NearbySearch Request:', { latitude, longitude, radius, type });
 
   // Search for places near the coordinates
   const placesResponse = await axios.get(
-    `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&type=${type}&key=${GOOGLE_PLACES_API}`
+    `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}${type ? `&type=${type}` : ''}&key=${GOOGLE_PLACES_API}`
   );
 
   // Log the response
@@ -165,7 +166,8 @@ export async function nearbySearch(options: NearbySearchOptions): Promise<Serper
     ratingCount: place.user_ratings_total || 0,
     category: place.types[0] || '',
     phoneNumber: place.formatted_phone_number || '',
-    website: place.website || ''
+    website: place.website || '',
+    place_id: place.place_id
   }));
 
   return { places };

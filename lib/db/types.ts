@@ -24,6 +24,7 @@ export interface SerperPlacesResponse {
     category: string;
     phoneNumber: string;
     website: string;
+    place_id: string;
   }>;
 }
 
