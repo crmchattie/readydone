@@ -1,6 +1,5 @@
-import { tool } from 'ai';
+import { tool, generateText } from 'ai';
 import { z } from 'zod';
-import { generateText } from 'ai';
 import { myProvider } from '@/lib/ai/providers';
 
 interface TaskContext {
