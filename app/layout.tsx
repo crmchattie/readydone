@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ChatProvider } from '@/lib/stores/chat-store';
 import AuthProvider from '@/components/session-provider';
+import { Analytics } from "@vercel/analytics/react"
 
 import './globals.css';
 
@@ -82,6 +83,7 @@ export default async function RootLayout({
             >
               <Toaster position="top-center" />
               {children}
+              <Analytics />
             </ThemeProvider>
           </ChatProvider>
         </AuthProvider>

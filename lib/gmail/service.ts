@@ -1,20 +1,19 @@
 import { GmailClient } from './client';
 import { 
-  getUserOAuthCredentialsByUserId,
+  getUserOAuthCredentialsByUserId, 
+  getThread,
+  saveThreadMessages,
+  getMessagesByThreadId, 
+  saveThread, 
   saveGmailWatch,
   getGmailWatchByUserId,
   updateGmailWatchStatus,
   getAllActiveGmailWatches,
-  getThread,
-  saveThread,
-  saveThreadMessages,
-  getMessagesByThreadId,
-  updateThreadStatus,
-  getThreadByExternalId,
-  getExternalPartyByEmail,
-  saveExternalParty,
+  getThreadByExternalId
 } from '@/lib/db/queries';
-import { generateUUID } from '@/lib/utils';
+import { generateAIResponse } from '@/lib/ai/actions';
+import type { ThreadMessage } from '@/lib/db/schema';
+import { generateUUID } from '../utils';
 
 interface NewMessageData {
   id: string;
@@ -23,6 +22,12 @@ interface NewMessageData {
   from: string;
   to: string;
   date: Date;
+  body: string;
+}
+
+interface MessageContent {
+  from: string;
+  to: string;
   body: string;
 }
 
@@ -110,26 +115,37 @@ export async function processNewMessages(userId: string, threadId: string): Prom
     // Process and save each new message
     for (const message of newMessages) {
       // Check if this is from the external party (not from us)
-      const isInbound = !message.from.includes(userId);
+      const isInbound = !message.from.includes(userId) && !message.from.toLowerCase().includes('savvo');
 
       if (isInbound) {
         // Save the message to our database
-        await saveThreadMessages({
-          messages: [{
-            threadId,
-            externalMessageId: message.id,
-            role: 'external',
-            subject: message.subject,
-            content: { text: message.body }
-          }]
-        });
-
-        // Update the thread with latest message preview
-        await updateThreadStatus({
+        const newMessage: Omit<ThreadMessage, 'id' | 'createdAt'> = {
           threadId,
+          externalMessageId: message.id || null,
+          role: 'external',
+          subject: message.subject || null,
+          content: {
+            from: message.from,
+            to: message.to,
+            body: message.body
+          }
+        };
+
+        await saveThreadMessages({ messages: [newMessage] });
+
+        // Update the thread with latest summary
+        await saveThread({
+          id: threadId,
+          name: thread.name,
+          chatId: thread.chatId,
+          externalPartyId: thread.externalPartyId,
+          externalSystemId: thread.externalSystemId || undefined,
           status: 'awaiting_reply',
           lastMessagePreview: `New message from ${message.from.split('<')[0].trim()}`
         });
+
+        // Generate an AI response for this message
+        await generateAndSendResponse(userId, threadId, message);
       }
     }
 
@@ -140,133 +156,184 @@ export async function processNewMessages(userId: string, threadId: string): Prom
   }
 }
 
-export async function initiateThread(
+export async function generateAndSendResponse(
   userId: string,
-  recipientEmail: string,
-  subject: string,
-  initialMessage: string,
-  chatId: string
-): Promise<string> {
+  threadId: string,
+  latestMessage: NewMessageData
+): Promise<void> {
   try {
-    // Create Gmail client
+    // Create Gmail client first
     const gmailClient = await createGmailClientForUser(userId);
     if (!gmailClient) {
       throw new Error('Failed to create Gmail client');
     }
 
-    // Get or create external party
-    let externalParty = await getExternalPartyByEmail({ email: recipientEmail });
-    if (!externalParty) {
-      // Create new external party
-      await saveExternalParty({
-        name: recipientEmail.split('@')[0], // Basic name from email
-        email: recipientEmail,
-        type: 'business', // Default type
-        phone: null,
-        address: null,
-        latitude: null,
-        longitude: null,
-        website: null
-      });
-      externalParty = await getExternalPartyByEmail({ email: recipientEmail });
-      if (!externalParty) {
-        throw new Error('Failed to create external party');
+    // Get conversation history for AI context
+    const threadMessages = await gmailClient.getThreadMessages(latestMessage.threadId);
+    const conversationHistory = threadMessages.map(msg => {
+      const content = gmailClient.extractMessageContent(msg);
+      const message: ThreadMessage = {
+        id: generateUUID(),
+        threadId,
+        createdAt: content.date,
+        externalMessageId: msg.id || null,
+        role: 'external',
+        subject: content.subject || null,
+        content: {
+          from: content.from,
+          to: content.to,
+          body: content.body
+        }
+      };
+      return message;
+    });
+
+    // Get all messages in the thread for context
+    const allMessages = await getMessagesByThreadId({ threadId });
+    const thread = await getThread({ id: threadId });
+
+    if (!thread) {
+      throw new Error(`Thread ${threadId} not found`);
+    }
+
+    // Generate AI response
+    const response = await generateAIResponse({
+      userId,
+      latestMessage,
+      conversationHistory,
+      threadContext: {
+        id: threadId,
+        name: thread.name,
+        chatId: thread.chatId,
+        createdAt: thread.createdAt,
+        externalPartyId: thread.externalPartyId,
+        externalSystemId: thread.externalSystemId,
+        status: thread.status,
+        lastMessagePreview: thread.lastMessagePreview
       }
-    }
+    });
 
-    // Send the initial message
+    // Send the response to review email instead of external party
+    const reviewEmail = process.env.REVIEW_EMAIL || 'admin@example.com';
+    const externalEmail = latestMessage.from;
+    
+    const reviewSubject = `[REVIEW NEEDED] Re: ${latestMessage.subject}`;
+    const reviewBody = `Original message from: ${externalEmail}
+Original message: 
+${latestMessage.body}
+
+Proposed AI Response:
+${response}
+
+To approve and send this response, please review and forward to: ${externalEmail}
+Thread ID: ${latestMessage.threadId}
+Message ID: ${latestMessage.id}`;
+
     const sentMessage = await gmailClient.sendMessage({
-      to: recipientEmail,
-      subject,
-      body: initialMessage
+      to: reviewEmail,
+      subject: reviewSubject,
+      body: reviewBody
     });
 
-    if (!sentMessage.threadId) {
-      throw new Error('Failed to send message: No thread ID returned');
-    }
+    // Save the draft response to our database
+    const newMessage: Omit<ThreadMessage, 'id' | 'createdAt'> = {
+      threadId,
+      externalMessageId: sentMessage.id || null,
+      role: 'ai',
+      subject: reviewSubject,
+      content: {
+        from: 'me',
+        to: reviewEmail,
+        body: response
+      }
+    };
 
-    // Create a new thread
-    const result = await saveThread({
-      id: generateUUID(),
-      chatId,
-      externalPartyId: externalParty.id,
-      name: subject,
-      externalSystemId: sentMessage.threadId,
+    await saveThreadMessages({ messages: [newMessage] });
+
+    // Update thread status
+    await saveThread({
+      id: threadId,
+      name: thread.name,
+      chatId: thread.chatId,
+      externalPartyId: thread.externalPartyId,
+      externalSystemId: thread.externalSystemId || undefined,
       status: 'awaiting_reply',
-      lastMessagePreview: 'Initial message sent'
+      lastMessagePreview: 'AI response sent for review'
     });
 
-    // Get the thread ID from the result
-    const newThreadId = result[0]?.id;
-    if (!newThreadId) {
-      throw new Error('Failed to create thread: No ID returned');
-    }
-
-    // Save the sent message
-    await saveThreadMessages({
-      messages: [{
-        threadId: newThreadId,
-        externalMessageId: sentMessage.id || null,
-        role: 'user',
-        subject,
-        content: { text: initialMessage }
-      }]
-    });
-
-    return newThreadId;
   } catch (error) {
-    console.error('Error initiating thread:', error);
+    console.error('Error generating and sending response:', error);
     throw error;
   }
 }
 
+
+
+export async function pollAllActiveConversations(userId: string): Promise<number> {
+  // This would get all active conversations for a user and poll each one
+  // Implement based on how you want to structure the polling
+  // For now, this is a placeholder
+  return 0;
+}
+
+// Setup Gmail push notifications
 export async function setupGmailWatch(userId: string): Promise<boolean> {
   try {
     // Create Gmail client
     const gmailClient = await createGmailClientForUser(userId);
     if (!gmailClient) {
+      console.error(`Failed to create Gmail client for user ${userId}`);
       return false;
     }
 
-    // Check if watch already exists and isn't close to expiring
+    // Check if there's an existing active watch
     const existingWatch = await getGmailWatchByUserId({ userId });
-    const EXPIRATION_BUFFER_MS = 24 * 60 * 60 * 1000; // 24 hours buffer
-    const now = new Date();
-    
-    if (existingWatch && existingWatch.active) {
-      // If watch exists but is close to expiring, refresh it
-      if (existingWatch.expiresAt.getTime() - now.getTime() > EXPIRATION_BUFFER_MS) {
-        return true;
+    if (existingWatch && existingWatch.active && existingWatch.expiresAt > new Date()) {
+      console.log(`Active Gmail watch already exists for user ${userId}`);
+      return true;
+    }
+
+    // If there's an existing watch but it's inactive or expired, stop it first
+    if (existingWatch) {
+      try {
+        await gmailClient.stopWatch();
+        await updateGmailWatchStatus({ id: existingWatch.id, active: false });
+      } catch (error) {
+        console.error('Error stopping existing watch:', error);
+        // Continue anyway to try to create a new watch
       }
     }
 
-    // Set up Gmail push notifications
-    const topicName = process.env.GMAIL_PUBSUB_TOPIC;
-    if (!topicName) {
-      throw new Error('GMAIL_PUBSUB_TOPIC environment variable not set');
-    }
-
-    const watchResponse = await gmailClient.setupWatch(topicName);
-    if (!watchResponse) {
-      return false;
-    }
-
-    // Calculate expiration with a default 7-day window if not provided
-    const expirationMs = watchResponse.expiration ? 
-      Number(watchResponse.expiration) : 
-      Date.now() + 7 * 24 * 60 * 60 * 1000;
+    // Set up a label for car dealer emails if it doesn't exist
+    let carDealerLabel;
+    const labels = await gmailClient.getLabels();
+    const existingLabel = labels.find((label: any) => label.name === 'Savvo/CarDealers');
     
-    // Save watch details
+    if (existingLabel) {
+      carDealerLabel = existingLabel.id;
+    } else {
+      const newLabel = await gmailClient.createLabel('Savvo/CarDealers');
+      carDealerLabel = newLabel.id;
+    }
+
+    // Setup the watch
+    const TOPIC_NAME = process.env.GMAIL_PUBSUB_TOPIC;
+    if (!TOPIC_NAME) {
+      throw new Error('GMAIL_PUBSUB_TOPIC environment variable is not set');
+    }
+    const watch = await gmailClient.setupWatch(TOPIC_NAME, carDealerLabel ? [carDealerLabel] : []);
+    
+    // Save watch details to database
     await saveGmailWatch({
       userId,
-      historyId: watchResponse.historyId || '',
-      expiresAt: new Date(expirationMs),
-      topicName,
-      active: true,
-      labels: null,
-      updatedAt: new Date()
+      historyId: watch.historyId ?? null,
+      topicName: TOPIC_NAME,
+      expiresAt: watch.expiration,
+      labels: carDealerLabel ? JSON.stringify([carDealerLabel]) : null,
+      updatedAt: new Date(),
     });
 
+    console.log(`Gmail watch set up successfully for user ${userId}`);
     return true;
   } catch (error) {
     console.error('Error setting up Gmail watch:', error);
@@ -274,37 +341,37 @@ export async function setupGmailWatch(userId: string): Promise<boolean> {
   }
 }
 
+// Refresh expired Gmail watches
 export async function refreshExpiredWatches(): Promise<number> {
   try {
+    // Get all active watches with users
     const watches = await getAllActiveGmailWatches();
-    let refreshed = 0;
-    const EXPIRATION_BUFFER_MS = 24 * 60 * 60 * 1000; // 24 hours buffer
-    const now = new Date();
+    let refreshedCount = 0;
 
     for (const watch of watches) {
-      // Refresh if expired or close to expiring
-      if (watch.GmailWatches.expiresAt.getTime() - now.getTime() <= EXPIRATION_BUFFER_MS) {
-        // Try to refresh the watch
-        const success = await setupGmailWatch(watch.User.id);
-        if (success) {
-          refreshed++;
-        } else {
-          // Mark as inactive if refresh failed
-          await updateGmailWatchStatus({
-            id: watch.GmailWatches.id,
-            active: false
-          });
-        }
+      // Skip if not expired or close to expiry (within 24 hours)
+      const expiresAt = new Date(watch.GmailWatches.expiresAt);
+      const expiresIn24Hours = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      
+      if (expiresAt > expiresIn24Hours) {
+        continue;
+      }
+      
+      // Refresh this watch
+      const success = await setupGmailWatch(watch.GmailWatches.userId);
+      if (success) {
+        refreshedCount++;
       }
     }
 
-    return refreshed;
+    return refreshedCount;
   } catch (error) {
-    console.error('Error refreshing expired watches:', error);
+    console.error('Error refreshing expired Gmail watches:', error);
     return 0;
   }
 }
 
+// Process new messages from history updates
 export async function processHistoryUpdate(userId: string, historyId: string): Promise<boolean> {
   try {
     // Get the last known history ID
@@ -317,60 +384,44 @@ export async function processHistoryUpdate(userId: string, historyId: string): P
     // Create Gmail client
     const gmailClient = await createGmailClientForUser(userId);
     if (!gmailClient) {
+      console.error(`Failed to create Gmail client for user ${userId}`);
       return false;
     }
 
     // Get history since last known ID
     const history = await gmailClient.getHistory(watch.historyId);
     if (!history || history.length === 0) {
+      console.log(`No history updates for user ${userId}`);
       return true;
     }
 
-    // Process history records in batches
-    const BATCH_SIZE = 10;
-    for (let i = 0; i < history.length; i += BATCH_SIZE) {
-      const batch = history.slice(i, i + BATCH_SIZE);
-      await Promise.all(batch.map(async (record) => {
-        // Handle added messages
-        if (record.messagesAdded) {
-          await Promise.all(record.messagesAdded.map(async (messageAdded) => {
-            if (!messageAdded?.message?.threadId) return;
+    // Process each history record
+    for (const record of history) {
+      // Look for added messages
+      if (record.messagesAdded) {
+        for (const messageAdded of record.messagesAdded) {
+          if (!messageAdded?.message?.threadId) {
+            console.log('Skipping message with no thread ID');
+            continue;
+          }
 
-            const thread = await getThreadByExternalId({ 
-              externalSystemId: messageAdded.message.threadId 
-            });
-            
-            if (thread) {
-              await processNewMessages(userId, thread.id);
-            }
-          }));
+          // Find conversation by thread ID
+          const thread = await findThreadByThreadId(messageAdded.message.threadId);
+          if (!thread) {
+            console.log(`No matching conversation found for thread ${messageAdded.message.threadId}`);
+            continue;
+          }
+
+          // Process messages for this conversation
+          await processNewMessages(userId, thread.id);
         }
-
-        // Handle deleted messages
-        if (record.messagesDeleted) {
-          await Promise.all(record.messagesDeleted.map(async (messageDeleted) => {
-            if (!messageDeleted?.message?.threadId) return;
-
-            const thread = await getThreadByExternalId({ 
-              externalSystemId: messageDeleted.message.threadId 
-            });
-            
-            if (thread) {
-              // Mark message as deleted in our system
-              await updateThreadStatus({
-                threadId: thread.id,
-                lastMessagePreview: 'Message was deleted in Gmail',
-              });
-            }
-          }));
-        }
-      }));
+      }
     }
 
     // Update the history ID
     await saveGmailWatch({
       userId,
-      historyId,
+      historyId: historyId, // Use the new history ID from the notification
       topicName: watch.topicName,
       expiresAt: watch.expiresAt,
       labels: watch.labels,
@@ -381,5 +432,15 @@ export async function processHistoryUpdate(userId: string, historyId: string): P
   } catch (error) {
     console.error('Error processing history update:', error);
     return false;
+  }
+}
+
+// Helper to find thread by Gmail thread ID
+async function findThreadByThreadId(threadId: string) {
+  try {
+    return await getThreadByExternalId({ externalSystemId: threadId });
+  } catch (error) {
+    console.error('Error finding thread by thread ID:', error);
+    return null;
   }
 } 
