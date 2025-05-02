@@ -364,3 +364,18 @@ export const embeddings = pgTable('Embedding', {
 });
 
 export type Embedding = InferSelectModel<typeof embeddings>;
+
+export const chatSummaries = pgTable('ChatSummary', {
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  chatId: uuid('chatId')
+    .notNull()
+    .references(() => chat.id, { onDelete: 'cascade' }),
+  summary: text('summary').notNull(),
+  lastMessageId: uuid('lastMessageId')
+    .notNull()
+    .references(() => message.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+});
+
+export type ChatSummary = typeof chatSummaries.$inferSelect;
+export type NewChatSummary = typeof chatSummaries.$inferInsert;

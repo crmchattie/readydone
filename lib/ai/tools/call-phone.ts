@@ -1,164 +1,110 @@
 import { tool, generateText } from 'ai';
 import { z } from 'zod';
 import { myProvider } from '@/lib/ai/providers';
+import { getContextForInteraction, type ConversationContext } from '@/lib/ai/context';
+import { startCall, endCall } from '../../vapi';
 
-interface TaskContext {
-    taskType: string;          // e.g., "insurance_quote", "appointment_scheduling", "price_negotiation"
-    businessName?: string;     // The business being called
-    businessType?: string;     // Type of business (e.g., "car_dealership", "medical_clinic", "insurance_company")
-    userGoal: string;         // The specific goal of the call
-    requiredInfo?: string[];  // Any information needed to complete the task
-    constraints?: string[];   // Any constraints or preferences
-  }
-  
-  async function generateFirstMessage(context: TaskContext) {
-    const { text } = await generateText({
-      model: myProvider.languageModel('chat-model'),
-      system: `You are an AI assistant making a phone call on behalf of a user. Generate a professional, natural first message that:
-      1. Greets the recipient appropriately
-      2. States your name and purpose clearly
-      3. Begins addressing the specific task
-      
-      Consider the following context:
-      - Task Type: ${context.taskType}
-      - Business: ${context.businessName || 'the business'}
-      - Goal: ${context.userGoal}
-      
-      The message should be concise, professional, and focused on the specific task while maintaining a natural, conversational tone.
-      DO NOT mention that you are an AI assistant.`,
-      prompt: `Generate an opening message for a call to ${context.businessName || 'a ' + context.businessType} regarding ${context.userGoal}.`,
-    });
-  
-    return text.trim();
-  }
-  
-  async function generateSystemPrompt(context: TaskContext) {
-    const { text } = await generateText({
-      model: myProvider.languageModel('chat-model'),
-      system: `Create a system prompt for an AI assistant making a phone call. The prompt should:
-      1. Define the assistant's purpose and scope for this specific task
-      2. Specify voice characteristics and persona
-      3. Outline the expected conversation flow
-      4. Provide task-specific guidelines and objectives
-      5. Include relevant domain knowledge
-      6. Define success criteria
-      
-      Task Context:
-      ${JSON.stringify(context, null, 2)}`,
-      prompt: `Create a detailed system prompt for an AI assistant that needs to ${context.userGoal} through a phone call with ${context.businessName || 'a ' + context.businessType}.`,
-    });
-  
-    return `# Task-Specific Call Assistant Prompt
-  
-  ${text.trim()}
-  
-  ## Task Context
-  - Type: ${context.taskType}
-  - Business: ${context.businessName || context.businessType}
-  - Goal: ${context.userGoal}
-  ${context.requiredInfo ? `\nRequired Information:\n${context.requiredInfo.map(info => `- ${info}`).join('\n')}` : ''}
-  ${context.constraints ? `\nConstraints:\n${context.constraints.map(constraint => `- ${constraint}`).join('\n')}` : ''}
-  
-  ## General Guidelines
-  - Maintain professional and natural conversation flow
-  - Focus on task completion while being courteous
-  - Ask clarifying questions when needed
-  - Confirm important details explicitly
-  - Handle objections professionally
-  - Know when to escalate or end the call
-  - Protect user's interests and information
-  - Stay within authorized boundaries
-  - Document important information received`;
-  }
-  
-  // Example usage:
-  /*
-  const taskContext: TaskContext = {
-    taskType: "insurance_quote",
-    businessName: "AllState Insurance",
-    businessType: "insurance_company",
-    userGoal: "obtain a comprehensive car insurance quote for a 2020 Toyota Camry",
-    requiredInfo: [
-      "Vehicle identification number (VIN)",
-      "Coverage preferences",
-      "Current insurance status"
-    ],
-    constraints: [
-      "Budget maximum $200/month",
-      "Must include collision coverage",
-      "Prefer low deductible options"
-    ]
-  };
-  
-  const firstMessage = await generateFirstMessage(taskContext);
-  const systemPrompt = await generateSystemPrompt(taskContext);
-  */ 
+async function generateFirstMessage(context: ConversationContext) {
+  const { text } = await generateText({
+    model: myProvider.languageModel('chat-model'),
+    system: `You are an AI assistant crafting an opening message for a phone call. Generate a professional, natural first message that:
+    1. Greets the recipient appropriately
+    2. States your name and purpose clearly
+    3. Begins addressing the specific task
+    
+    Consider the following context:
+    ${context.historicalContext}${
+      context.recentContext ? `\n\nRecent developments:\n${context.recentContext}` : ''
+    }
+    
+    The message should be concise, professional, and focused on the specific task while maintaining a natural, conversational tone.
+    DO NOT mention that you are an AI assistant.`,
+    prompt: `Generate an appropriate opening message for this phone call based on the context provided.`,
+  });
+
+  return text.trim();
+}
+
+async function generateSystemPrompt(context: ConversationContext) {
+  const { text } = await generateText({
+    model: myProvider.languageModel('chat-model'),
+    system: `Create a system prompt for an AI assistant making a phone call. The prompt should follow this structure:
+
+[Identity]
+- Define who you are and your role in this conversation
+- Specify your purpose for this specific call
+- Set the appropriate tone and demeanor
+
+[Style]
+- Be informative yet concise (this is a voice conversation)
+- Maintain a professional and natural tone
+- Use appropriate pacing and pauses
+- Speak clearly and avoid complex jargon
+
+[Response Guidelines]
+- Ask one question at a time
+- Wait for user responses before proceeding
+- Confirm important information explicitly
+- Handle silence or unclear responses professionally
+- Format numbers and dates for clear verbal communication
+- Use appropriate verbal acknowledgments
+
+[Task Breakdown]
+1. Introduce yourself and state purpose
+2. Verify you're speaking with the right person
+3. Address the specific task objectives
+4. Handle any questions or concerns
+5. Summarize and confirm next steps
+6. Close professionally
+
+[Error Handling]
+- If the response is unclear, ask for clarification
+- If you encounter technical issues, explain and offer alternatives
+- Know when to transfer to a human operator
+- Handle objections professionally and empathetically
+
+[Success Criteria]
+- Clear communication of purpose and outcomes
+- Successful completion of task objectives
+- Professional handling of any concerns
+- Appropriate documentation of important information
+
+Consider this context:
+${context.historicalContext}${
+      context.recentContext ? `\n\nRecent developments:\n${context.recentContext}` : ''
+    }`,
+    prompt: `Create a detailed system prompt for an AI assistant that needs to handle this phone call based on the context provided.`,
+  });
+
+  return text.trim();
+}
 
 export const callPhone = tool({
   description: 'Make an outbound phone call using Vapi AI',
   parameters: z.object({
-    phoneNumber: z.string().describe('The phone number to call (in E.164 format, e.g., +11231231234)'),
-    assistantId: z.string().describe('The Vapi assistant ID to use for the call'),
-    phoneNumberId: z.string().describe('The ID of the phone number to call from'),
-    scheduleTime: z.string().optional().describe('Optional ISO date-time string for scheduling the call (e.g., 2025-05-30T00:00:00Z)'),
-    taskContext: z.object({
-      taskType: z.string(),
-      businessName: z.string().optional(),
-      businessType: z.string().optional(),
-      userGoal: z.string(),
-      requiredInfo: z.array(z.string()).optional(),
-      constraints: z.array(z.string()).optional(),
-    }).describe('Context about the task being performed in the call'),
+    messages: z.array(z.any()).describe('The conversation messages to use for context'),
+    chatId: z.string().describe('The chat ID to get context from'),
   }),
-  execute: async ({ phoneNumber, assistantId, phoneNumberId, scheduleTime, taskContext }) => {
+  execute: async ({ messages, chatId }) => {
     try {
-      // Generate the first message and system prompt based on the task context
-      const firstMessage = await generateFirstMessage(taskContext);
-      const systemPrompt = await generateSystemPrompt(taskContext);
+      // Get context once
+      const context = await getContextForInteraction(chatId, messages);
 
-      // Construct the request body
-      const requestBody: any = {
-        assistantId,
-        phoneNumberId,
-        customer: {
-          number: phoneNumber
-        },
-        assistant: {
-          firstMessage,
-          systemPrompt
-        }
-      };
+      // Generate the first message and system prompt based on the context
+      const firstMessage = await generateFirstMessage(context);
+      const systemPrompt = await generateSystemPrompt(context);
 
-      // Add schedule plan if a time is specified
-      if (scheduleTime) {
-        requestBody.schedulePlan = {
-          earliestAt: scheduleTime
-        };
-      }
-
-      // Make the API call to Vapi
-      const response = await fetch('https://api.vapi.ai/call', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.VAPI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(`Failed to initiate call: ${error.message || response.statusText}`);
-      }
-
-      const result = await response.json();
+      // Start the Vapi call with our generated messages
+      const call = await startCall(firstMessage, systemPrompt);
       
+      if (!call) {
+        throw new Error('Failed to initiate call: No call object returned');
+      }
+
       return {
         success: true,
-        message: scheduleTime 
-          ? `Call scheduled to ${phoneNumber} for ${scheduleTime}`
-          : `Call initiated to ${phoneNumber}`,
-        callId: result.id,
+        message: 'Call initiated successfully',
+        callId: call.id,
         firstMessage,
         systemPrompt
       };

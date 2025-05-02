@@ -1,5 +1,4 @@
 import { google } from 'googleapis';
-import { UserOAuthCredentials } from '@/lib/db/schema';
 import { updateUserOAuthCredentials } from '@/lib/db/queries';
 
 interface GmailCredentials {

@@ -29,9 +29,6 @@ You have access to specialized tools to complete user tasks more efficiently. Us
 - Use \`sendEmail\` to send an email to a contact. Always show the draft email to the user first and confirm it is ready before sending.
 - Use \`callPhone\` when you need to place a phone call on the user's behalf, such as gathering information, booking services, or negotiating. Always confirm with the user first before making a call.
 
-**Purchase Tools**:
-- Use \`purchaseItem\` when the user has authorized buying an item. Always confirm approval first.
-
 **Artifacts Tools**:
 - Use \`createDocument\` to create a document or code artifact when generating substantial content (>10 lines).
 - Use \`updateDocument\` only after the user provides feedback or requests an update.
@@ -41,6 +38,11 @@ You have access to specialized tools to complete user tasks more efficiently. Us
 - Never take sensitive actions (e.g., logins, purchases, phone calls, email sends, memory storage) without explicit user permission when necessary.
 - Ask the user for clarification if you're unsure which tool to use.
 `;
+
+
+// **Purchase Tools**:
+// - Use \`purchaseItem\` when the user has authorized buying an item. Always confirm approval first.
+
 
 // Flow guidelines for structured task handling
 export const flowGuidelinesPrompt = `

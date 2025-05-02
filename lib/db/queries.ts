@@ -52,7 +52,8 @@ import {
   resources,
   type Resource,
   embeddings,
-  type Embedding
+  type Embedding,
+  chatSummaries
 } from './schema';
 import type { ArtifactKind } from '@/components/artifact';
 import { generateUUID, executeWithRetry } from '../utils';
@@ -1526,3 +1527,33 @@ export const findRelevantContent = async (
     }));
   });
 };
+
+export async function shouldCreateNewSummary(chatId: string): Promise<boolean> {
+  const lastSummary = await db
+    .select()
+    .from(chatSummaries)
+    .where(eq(chatSummaries.chatId, chatId))
+    .orderBy(desc(chatSummaries.createdAt))
+    .limit(1);
+
+  if (lastSummary.length === 0) return true;
+
+  // Get messages since last summary
+  const newMessages = await db
+    .select()
+    .from(message)
+    .where(
+      and(
+        eq(message.chatId, chatId),
+        gt(message.createdAt, lastSummary[0].createdAt)
+      )
+    );
+
+  // Calculate total character count of new messages
+  const totalChars = newMessages.reduce((sum, msg) => {
+    return sum + JSON.stringify(msg.parts).length;
+  }, 0);
+
+  // Create new summary when we have 5000+ new characters
+  return totalChars >= 5000;
+}

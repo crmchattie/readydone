@@ -5,6 +5,7 @@ import { createResource, findRelevantContent } from '@/lib/db/queries';
 import { myProvider } from '@/lib/ai/providers';
 
 interface MemoryToolsProps {
+  chatId: string;
   messages: Message[];
   userId: string;
 }
@@ -27,27 +28,34 @@ Merged memory:`,
   return mergedMemory;
 }
 
-export const retrieveMemory = ({ messages, userId }: MemoryToolsProps) =>
+export const retrieveMemory = ({ chatId, messages, userId }: MemoryToolsProps) =>
   tool({
     description: 'Retrieve relevant memories from previous conversations based on the current context',
     parameters: z.object({
-      query: z.string().describe('A detailed query describing what information you are looking for. Include specific topics, keywords, or context that will help find relevant memories.'),
+      query: z.string().describe('A detailed query describing what information you are looking for.'),
     }),
     execute: async ({ query }) => {
       try {
-        const conversationSummary = await summarizeMessages(
-          messages,
-          'Summarize the current conversation, focusing on key topics, decisions, and important details that might be relevant for future reference:'
+        // Filter messages to only include those from this user
+        const userMessages = messages.filter(msg => msg.role === 'user');
+        
+        // Generate a summary of the user's messages
+        const currentContext = await summarizeMessages(
+          userMessages,
+          'Summarize the conversation focusing on key topics, decisions, and important details from this user:'
         );
         
-        const enhancedQuery = `${query}\n\nContext from current conversation:\n${conversationSummary}`;
+        const enhancedQuery = `${query}\n\nCurrent context:\n${currentContext}`;
+        
         const relevantContent = await findRelevantContent(enhancedQuery, userId);
         
         if (relevantContent.length === 0) {
           return 'No relevant memories found.';
         }
 
-        return `Current conversation context:\n${conversationSummary}\n\nRelevant memories:\n${relevantContent.map(content => content.content).join('\n\n')}`;
+        return `Current context:\n${currentContext}\n\nRelevant memories:\n${
+          relevantContent.map(content => content.content).join('\n\n')
+        }`;
       } catch (error) {
         console.error('Failed to retrieve memory:', error);
         throw error;
@@ -55,27 +63,29 @@ export const retrieveMemory = ({ messages, userId }: MemoryToolsProps) =>
     },
   });
 
-export const storeMemory = ({ messages, userId }: MemoryToolsProps) =>
+export const storeMemory = ({ chatId, messages, userId }: MemoryToolsProps) =>
   tool({
     description: 'Store important information from the current conversation for future reference',
     parameters: z.object({
-      prompt: z.string().optional().describe('Optional prompt to guide the summarization'),
+      prompt: z.string().optional().describe('Optional prompt to guide what information should be stored'),
     }),
     execute: async ({ prompt }) => {
       try {
-        const summary = await summarizeMessages(
-          messages,
-          prompt || 'Extract and summarize the most important information from this conversation that would be valuable to remember for future reference. Focus on key decisions, insights, and actionable items'
+        // Filter messages to only include those from this user
+        const userMessages = messages.filter(msg => msg.role === 'user');
+        
+        // Generate new memory focusing on what's new/important
+        const newMemory = await summarizeMessages(
+          userMessages,
+          prompt || 'Extract new, important information from this user that would be valuable to remember for future interactions.'
         );
         
-        // Check for existing similar memories
-        const existingMemories = await findRelevantContent(summary, userId, 1);
+        // Check for similar existing memories
+        const existingMemories = await findRelevantContent(newMemory, userId, 1);
         
         if (existingMemories.length > 0 && existingMemories[0].similarity > 0.7) {
-          // If we found a highly similar memory, merge them
-          const mergedMemory = await mergeMemories(existingMemories[0].content, summary);
+          const mergedMemory = await mergeMemories(existingMemories[0].content, newMemory);
           
-          // Update the existing memory with the merged content
           await createResource({
             content: mergedMemory,
             url: 'memory',
@@ -85,14 +95,13 @@ export const storeMemory = ({ messages, userId }: MemoryToolsProps) =>
           
           return `Updated existing memory with new information: ${mergedMemory}`;
         } else {
-          // Create a new memory
           await createResource({
-            content: summary,
+            content: newMemory,
             url: 'memory',
             title: 'Conversation Memory',
             userId,
           });
-          return `Memory stored: ${summary}`;
+          return `Memory stored: ${newMemory}`;
         }
       } catch (error) {
         console.error('Failed to store memory:', error);

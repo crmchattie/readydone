@@ -14,13 +14,14 @@ import {
   saveMessages,
   getChatsByUserId,
   getChatParticipants,
+  shouldCreateNewSummary
 } from '@/lib/db/queries';
 import {
   generateUUID,
   getMostRecentUserMessage,
   getTrailingMessageId,
 } from '@/lib/utils';
-import { generateTitleFromUserMessage } from '../../actions';
+import { generateTitleFromUserMessage, summarizeMessages } from '../../actions';
 import { retrieveMemory, storeMemory } from '@/lib/ai/tools/with-memory';
 import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
@@ -33,6 +34,8 @@ import { findEmail } from '@/lib/ai/tools/find-email';
 import { findPhone } from '@/lib/ai/tools/find-phone';
 import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
+import { db } from '@/lib/db';
+import { chatSummaries } from '@/lib/db/schema';
 
 export const maxDuration = 60;
 
@@ -78,6 +81,20 @@ export async function POST(request: Request) {
       }
     }
 
+    // Check if we need a new summary
+    if (await shouldCreateNewSummary(id)) {
+      const summary = await summarizeMessages(
+        messages,
+        'Summarize the conversation focusing on key topics, decisions, and important details that would be relevant for future interactions:'
+      );
+
+      await db.insert(chatSummaries).values({
+        chatId: id,
+        summary,
+        lastMessageId: messages[messages.length - 1].id,
+      });
+    }
+
     await saveMessages({
       messages: [
         {
@@ -118,8 +135,8 @@ export async function POST(request: Request) {
           experimental_generateMessageId: generateUUID,
           tools: {
             planTask: planTask,
-            retrieveMemory: retrieveMemory({ messages, userId: session.user!.id! }),
-            storeMemory: storeMemory({ messages, userId: session.user!.id! }),
+            retrieveMemory: retrieveMemory({ chatId: id, messages, userId: session.user!.id! }),
+            storeMemory: storeMemory({ chatId: id, messages, userId: session.user!.id! }),
             createDocument: createDocument({ session, dataStream }),
             updateDocument: updateDocument({ session, dataStream }),
             requestSuggestions: requestSuggestions({

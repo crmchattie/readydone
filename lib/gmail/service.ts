@@ -268,7 +268,6 @@ Message ID: ${latestMessage.id}`;
 }
 
 
-
 export async function pollAllActiveConversations(userId: string): Promise<number> {
   // This would get all active conversations for a user and poll each one
   // Implement based on how you want to structure the polling
