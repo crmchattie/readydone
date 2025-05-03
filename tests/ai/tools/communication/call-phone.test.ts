@@ -6,15 +6,15 @@ test.describe('call-phone tool', () => {
     const result = await callPhone.execute({
       phoneNumber: '+1234567890',
       messages: ['This is a test call'],
-      assistantId: 'test-assistant',
-      phoneNumberId: 'test-number',
-      chatId: 'test-chat'
+      chatId: 'test-chat',
+      earliestAt: new Date().toISOString(),
+      latestAt: new Date(Date.now() + 3600000).toISOString()
     }, {
       toolCallId: 'test-tool-call-id',
       messages: []
     });
 
-    expect(result).toContain('Call initiated successfully');
+    expect(result.message).toContain('Call initiated successfully');
   });
 
   test('validates phone numbers', async ({ aiContext }) => {
@@ -22,8 +22,6 @@ test.describe('call-phone tool', () => {
       await callPhone.execute({
         phoneNumber: 'invalid-number',
         messages: ['This is a test call'],
-        assistantId: 'test-assistant',
-        phoneNumberId: 'test-number',
         chatId: 'test-chat'
       }, {
         toolCallId: 'test-tool-call-id',
@@ -37,8 +35,6 @@ test.describe('call-phone tool', () => {
       await callPhone.execute({
         phoneNumber: '+1234567890',
         messages: [''],
-        assistantId: 'test-assistant',
-        phoneNumberId: 'test-number',
         chatId: 'test-chat'
       }, {
         toolCallId: 'test-tool-call-id',
@@ -52,8 +48,6 @@ test.describe('call-phone tool', () => {
       await callPhone.execute({
         phoneNumber: '+9999999999',
         messages: ['This should trigger an error'],
-        assistantId: 'test-assistant',
-        phoneNumberId: 'test-number',
         chatId: 'test-chat'
       }, {
         toolCallId: 'test-tool-call-id',
@@ -66,30 +60,27 @@ test.describe('call-phone tool', () => {
     const result = await callPhone.execute({
       phoneNumber: '+44123456789',
       messages: ['International test call'],
-      assistantId: 'test-assistant',
-      phoneNumberId: 'test-number',
       chatId: 'test-chat'
     }, {
       toolCallId: 'test-tool-call-id',
       messages: []
     });
 
-    expect(result).toContain('Call initiated successfully');
+    expect(result.message).toContain('Call initiated successfully');
   });
 
-  test('handles call status updates', async ({ aiContext }) => {
+  test('handles scheduling', async ({ aiContext }) => {
     const result = await callPhone.execute({
       phoneNumber: '+1234567890',
-      messages: ['Test call with status'],
-      assistantId: 'test-assistant',
-      phoneNumberId: 'test-number',
+      messages: ['Test call with scheduling'],
       chatId: 'test-chat',
-      scheduleTime: new Date().toISOString()
+      earliestAt: new Date().toISOString(),
+      latestAt: new Date(Date.now() + 3600000).toISOString()
     }, {
       toolCallId: 'test-tool-call-id',
       messages: []
     });
 
-    expect(result).toMatch(/Call (completed|failed|no-answer)/);
+    expect(result.message).toContain('Call initiated successfully');
   });
 }); 

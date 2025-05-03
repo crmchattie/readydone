@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { myProvider } from '@/lib/ai/providers';
 import { createGmailClientForUser } from '@/lib/gmail/service';
 import { getContextForInteraction, type ConversationContext } from '@/lib/ai/context';
+import { saveThread, saveThreadMessages } from '@/lib/db/queries';
+import { generateUUID } from '@/lib/utils';
 
 async function generateEmailSubject(context: ConversationContext) {
   const { text } = await generateText({
@@ -83,13 +85,32 @@ export const sendEmail = tool({
         body
       });
 
+      // Create a thread for the email exchange
+      const threadId = generateUUID();
+      await saveThread({
+        id: threadId,
+        chatId,
+        externalPartyId: to,
+        name: `Email to ${to}`,
+        externalSystemId: result.threadId || undefined,
+        status: 'awaiting_reply',
+        lastMessagePreview: body.substring(0, 100) + '...'
+      });
+
+      // Save the email as a thread message
+      await saveThreadMessages({
+        messages: [{
+          threadId,
+          role: 'ai' as const,
+          content: body,
+          externalMessageId: result.id || null,
+          subject
+        }]
+      });
+
+      // Return just the email body
       return {
-        success: true,
-        message: `Email sent successfully to ${to}`,
-        messageId: result.id,
-        threadId: result.threadId,
-        subject,
-        preview: body.substring(0, 100) + '...'
+        message: body
       };
 
     } catch (error) {

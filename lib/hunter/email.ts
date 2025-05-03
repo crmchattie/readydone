@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { isAxiosError } from 'axios';
 import { HunterResponse } from '../db/types';
 
 const HUNTER_API_KEY = process.env.HUNTER_API_KEY;
@@ -75,7 +75,7 @@ export async function findEmailsByDomain(options: EmailSearchOptions): Promise<s
     
     return highConfidenceEmails;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
+    if (isAxiosError(error)) {
       console.error('Hunter API Error:', {
         status: error.response?.status,
         statusText: error.response?.statusText,

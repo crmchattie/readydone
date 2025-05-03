@@ -8,9 +8,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'ReadyDone | Your AI Task Assistant',
     description: 'Combine natural conversation, smart search, and automated outreach to get things done. Our AI handles the emails, documents, and organization while you make the decisions.',
-    url: 'https://readydone.com',
+    url: 'https://readydone.ai',
     siteName: 'ReadyDone',
-    images: [{ url: 'https://readydone.com/api/og', width: 1200, height: 630, alt: 'ReadyDone - AI-Powered Task Completion Assistant' }]
+    images: [{ url: 'https://readydone.ai/api/og', width: 1200, height: 630, alt: 'ReadyDone - AI-Powered Task Completion Assistant' }]
   }
 };
 

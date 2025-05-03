@@ -1,8 +1,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import { searchPlaces, nearbySearch, coordsToLocationString } from '@/lib/places';
-import { PlaceType } from '@/lib/places/types';
-import { SerperPlacesResponse } from '@/lib/db/types';
+import { searchPlaces, nearbySearch } from '@/lib/places';
+import { PlaceType, SerperPlacesResponse } from '@/lib/db/types';
 import axios from 'axios';
 
 const GOOGLE_PLACES_API = process.env.GOOGLE_PLACES_API;
@@ -134,27 +133,33 @@ export const searchPlacesTool = tool({
   }),
   execute: async ({ query, address, radius, type, limit }) => {
     try {
+      // Validate address is a string
+      const validatedAddress = z.string().parse(address);
+      const validatedRadius = z.number().parse(radius);
+      const validatedType = z.nativeEnum(PlaceType).parse(type).toLowerCase();
+      
       // Get coordinates from address
-      const { latitude, longitude } = await getCoordinatesFromAddress(address);
+      const { latitude, longitude } = await getCoordinatesFromAddress(validatedAddress);
       
       let results;
       
       if (query) {
         // Use text search if query is provided
+        const validatedQuery = z.string().parse(query);
         results = await searchPlaces({
-          query,
+          query: validatedQuery,
           latitude,
           longitude,
-          radius,
-          type: type?.toLowerCase(),
+          radius: validatedRadius,
+          type: validatedType,
         });
       } else {
         // Use nearby search if no query is provided
         results = await nearbySearch({
           latitude,
           longitude,
-          radius,
-          type: type?.toLowerCase(),
+          radius: validatedRadius,
+          type: validatedType,
         });
       }
 
@@ -162,8 +167,10 @@ export const searchPlacesTool = tool({
         return 'No places found matching your criteria.';
       }
 
+      const validatedLimit = z.number().parse(limit);
+
       // Apply limit if specified
-      const places = limit ? results.places.slice(0, limit) : results.places;
+      const places = limit ? results.places.slice(0, validatedLimit) : results.places;
 
       return `Found ${places.length} places${query ? ` matching "${query}"` : ''} near ${address}:\n\n${places
         .map((place, index) => formatPlaceDetails(place, index))

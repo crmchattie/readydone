@@ -155,7 +155,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-2xl font-semibold mb-3">10. Contact Us</h2>
           <p>
-            If you have any questions about this Privacy Policy, please contact us at cory@readydone.ai
+            If you have any questions about this Privacy Policy, please contact us at {process.env.RESEND_EMAIL}
           </p>
         </section>
       </div>

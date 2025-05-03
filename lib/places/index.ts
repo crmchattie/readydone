@@ -42,7 +42,7 @@ async function fetchPlaceDetails(placeId: string): Promise<any> {
 
   try {
     const detailsResponse = await axios.get(
-      `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=website&key=${GOOGLE_PLACES_API}`
+      `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=website,opening_hours&key=${GOOGLE_PLACES_API}`
     );
 
     console.log('Place details response:', detailsResponse.data);
@@ -52,20 +52,32 @@ async function fetchPlaceDetails(placeId: string): Promise<any> {
       return null;
     }
 
-    // Check if we have a result and it has a website
-    if (!detailsResponse.data.result || !detailsResponse.data.result.website) {
-      console.log(`No website found for placeId ${placeId}`);
+    const result = detailsResponse.data.result;
+    if (!result) {
+      console.log(`No details found for placeId ${placeId}`);
       return null;
     }
 
-    try {
-      const websiteUrl = new URL(detailsResponse.data.result.website);
-      const coreUrl = `${websiteUrl.protocol}//${websiteUrl.hostname}`;
-      return { ...detailsResponse.data.result, website: coreUrl };
-    } catch (urlError) {
-      console.error(`Invalid website URL for placeId ${placeId}:`, detailsResponse.data.result.website);
-      return null;
+    let website = null;
+    if (result.website) {
+      try {
+        const websiteUrl = new URL(result.website);
+        website = `${websiteUrl.protocol}//${websiteUrl.hostname}`;
+      } catch (urlError) {
+        console.error(`Invalid website URL for placeId ${placeId}:`, result.website);
+      }
     }
+
+    return {
+      website,
+      opening_hours: result.opening_hours ? {
+        open_now: result.opening_hours.open_now,
+        periods: result.opening_hours.periods,
+        special_days: result.opening_hours.special_days,
+        weekday_text: result.opening_hours.weekday_text,
+        type: result.opening_hours.type
+      } : undefined
+    };
   } catch (error) {
     console.error(`Exception fetching details for placeId ${placeId}:`, error);
     return null;
@@ -121,7 +133,8 @@ export async function searchPlaces(options: SearchPlacesOptions): Promise<Serper
             category: place.types[0] || '',
             phoneNumber: place.formatted_phone_number || '',
             website: details.website,
-            place_id: place.place_id
+            place_id: place.place_id,
+            opening_hours: details.opening_hours
           });
         }
       }

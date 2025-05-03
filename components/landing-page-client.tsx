@@ -808,7 +808,7 @@ export default function LandingPageClient() {
               <h3 className="text-foreground font-semibold mb-4">Support</h3>
               <ul className="space-y-2">
                 <li>
-                  <a href="mailto:cory@readydone.ai" className="hover:text-foreground transition-colors">
+                  <a href={`mailto:${process.env.RESEND_EMAIL}`} className="hover:text-foreground transition-colors">
                     Contact Us
                   </a>
                 </li>

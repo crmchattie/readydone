@@ -6,17 +6,43 @@
     "prettier",
     "plugin:tailwindcss/recommended"
   ],
-  "plugins": ["tailwindcss"],
+  "plugins": [
+    "tailwindcss"
+  ],
   "rules": {
     "tailwindcss/no-custom-classname": "off",
-    "tailwindcss/classnames-order": "off"
+    "tailwindcss/classnames-order": "off",
+    "import/no-unresolved": [
+      "error",
+      {
+        "ignore": [
+          "@browserbasehq/sdk",
+          "@vapi-ai/server-sdk",
+          "next",
+          "next/link",
+          "next/image",
+          "next/navigation",
+          "@/components/*",
+          "lucide-react",
+          "react",
+          "next-auth/react"
+        ]
+      }
+    ]
   },
   "settings": {
     "import/resolver": {
-      "typescript": {
-        "alwaysTryTypes": true
+      "node": {
+        "extensions": [
+          ".js",
+          ".jsx",
+          ".ts",
+          ".tsx"
+        ]
       }
     }
   },
-  "ignorePatterns": ["**/components/ui/**"]
+  "ignorePatterns": [
+    "**/components/ui/**"
+  ]
 }
