@@ -13,6 +13,7 @@ import type { Chat } from '@/lib/db/schema';
 import { ChatItem } from '@/components/sidebar-history-item';
 import { Loader2 } from 'lucide-react';
 import { usePanel } from '@/lib/panel-context';
+import { useChatStore } from '@/lib/stores/chat-store';
 
 type GroupedChats = {
   today: Chat[];
@@ -95,6 +96,7 @@ export function SidebarHistory({
   isLoading
 }: SidebarHistoryProps) {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const { setChats } = useChatStore();
 
   const groupedChats = useMemo(() => {
     const groups: Record<string, Chat[]> = {};
@@ -115,9 +117,10 @@ export function SidebarHistory({
   const deleteChat = async (chatId: string) => {
     setIsDeleting(chatId);
     try {
-      await fetch(`/api/chats/${chatId}`, {
+      await fetch(`/api/chat?id=${chatId}`, {
         method: 'DELETE',
       });
+      setChats(chats.filter(chat => chat.id !== chatId));
       onSelectChat('');
     } catch (error) {
       console.error('Failed to delete chat:', error);

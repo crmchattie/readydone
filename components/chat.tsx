@@ -18,6 +18,17 @@ import { getChatHistoryPaginationKey } from './sidebar-history';
 import { LoaderIcon } from './icons';
 import { useChatStore } from '@/lib/stores/chat-store';
 
+export interface ChatProps {
+  id: string;
+  initialMessages: Array<UIMessage>;
+  selectedChatModel: string;
+  selectedVisibilityType: VisibilityType;
+  isReadonly: boolean;
+  toggle?: ReactNode;
+  isThreadChat?: boolean;
+  selectedThread?: any;
+}
+
 export function Chat({
   id,
   initialMessages,
@@ -27,16 +38,7 @@ export function Chat({
   toggle,
   isThreadChat,
   selectedThread,
-}: {
-  id: string;
-  initialMessages: Array<UIMessage>;
-  selectedChatModel: string;
-  selectedVisibilityType: VisibilityType;
-  isReadonly: boolean;
-  toggle?: ReactNode;
-  isThreadChat?: boolean;
-  selectedThread?: any;
-}) {
+}: ChatProps) {
   const { mutate } = useSWRConfig();
   const { isLoadingMessages } = useChatStore();
   
@@ -80,7 +82,7 @@ export function Chat({
   if (isThreadChat && !selectedThread) {
     return (
       <div className="flex flex-col min-w-0 h-full bg-background">
-        <ChatHeader toggle={toggle} />
+        <ChatHeader toggle={toggle} isThreadChat={isThreadChat} />
         <div className="flex flex-1 justify-center items-center text-muted-foreground">
           <div className="text-center p-8">
             <p className="mb-2 text-sm font-medium">Select a thread to view its messages</p>
@@ -94,7 +96,7 @@ export function Chat({
   if (isLoadingMessages) {
     return (
       <div className="flex flex-col min-w-0 h-full bg-background">
-        <ChatHeader toggle={toggle} />
+        <ChatHeader toggle={toggle} isThreadChat={isThreadChat} />
         <div className="flex flex-1 justify-center items-center">
           <div className="flex items-center gap-2 text-muted-foreground">
             <div className="animate-spin">
@@ -110,7 +112,7 @@ export function Chat({
   return (
     <>
       <div className="flex flex-col min-w-0 h-full bg-background">
-        <ChatHeader toggle={toggle} />
+        <ChatHeader toggle={toggle} isThreadChat={isThreadChat} />
 
         <Messages
           chatId={id}

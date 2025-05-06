@@ -14,6 +14,7 @@ export interface SaveDocumentProps {
   kind: ArtifactKind;
   content: string;
   userId: string;
+  chatId: string;
 }
 
 export interface CreateDocumentCallbackProps {
@@ -21,6 +22,7 @@ export interface CreateDocumentCallbackProps {
   title: string;
   dataStream: DataStreamWriter;
   session: Session;
+  chatId: string;
 }
 
 export interface UpdateDocumentCallbackProps {
@@ -28,6 +30,7 @@ export interface UpdateDocumentCallbackProps {
   description: string;
   dataStream: DataStreamWriter;
   session: Session;
+  chatId: string;
 }
 
 export interface DocumentHandler<T = ArtifactKind> {
@@ -49,6 +52,7 @@ export function createDocumentHandler<T extends ArtifactKind>(config: {
         title: args.title,
         dataStream: args.dataStream,
         session: args.session,
+        chatId: args.chatId
       });
 
       if (args.session?.user?.id) {
@@ -58,6 +62,7 @@ export function createDocumentHandler<T extends ArtifactKind>(config: {
           content: draftContent,
           kind: config.kind,
           userId: args.session.user.id,
+          chatId: args.chatId
         });
       }
 
@@ -69,6 +74,7 @@ export function createDocumentHandler<T extends ArtifactKind>(config: {
         description: args.description,
         dataStream: args.dataStream,
         session: args.session,
+        chatId: args.chatId
       });
 
       if (args.session?.user?.id) {
@@ -78,6 +84,7 @@ export function createDocumentHandler<T extends ArtifactKind>(config: {
           content: draftContent,
           kind: config.kind,
           userId: args.session.user.id,
+          chatId: args.chatId
         });
       }
 

@@ -2,7 +2,7 @@
 
 import type { User } from 'next-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import Image from 'next/image';
 
 import { MessageCircleIcon, PlusIcon } from 'lucide-react';
@@ -35,7 +35,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
     fetchChats,
     setCurrentChat,
     fetchChatMessages,
-    fetchThreads
+    fetchThreads,
   } = useChatStore();
   
   // Derive isCollapsed directly from panelStates every render - single source of truth
@@ -76,12 +76,10 @@ export function AppSidebar({ user }: { user: User | undefined }) {
     };
   }, [chats, setCurrentChat, fetchChatMessages, showPanel]);
 
-  const handleNewChat = () => {
+  const handleNewChat = useCallback(() => {
     setCurrentChat(null);
-    if (panelStates['chat'] === 'collapsed') {
-      showPanel('chat');
-    }
-  };
+    showPanel('chat');
+  }, [setCurrentChat, showPanel]);
 
   const handleSelectChat = async (chatId: string) => {
     const selectedChat = chats.find(chat => chat.id === chatId);

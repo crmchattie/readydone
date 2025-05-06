@@ -5,15 +5,18 @@ import {
   getDocumentsById,
   saveDocument,
   getDocumentAccess,
+  getDocumentsByKind,
+  saveChat,
+  getChatById,
 } from '@/lib/db/queries';
+import { documentAccess } from '@/lib/db/schema';
+import { db } from '@/lib/db';
+import { generateUUID } from '@/lib/utils';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
-
-  if (!id) {
-    return new Response('Missing id', { status: 400 });
-  }
+  const kind = searchParams.get('kind');
 
   const session = await auth();
 
@@ -21,26 +24,43 @@ export async function GET(request: Request) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const documents = await getDocumentsById({ id });
-  const [document] = documents;
+  try {
+    if (id) {
+      // Get specific document by ID
+      const documents = await getDocumentsById({ id });
+      const [document] = documents;
 
-  if (!document) {
-    return new Response('Not found', { status: 404 });
+      if (!document) {
+        return new Response('Not found', { status: 404 });
+      }
+
+      // Check if user has access to the document
+      const access = await getDocumentAccess({ 
+        documentId: document.id, 
+        documentCreatedAt: document.createdAt 
+      });
+      
+      const userAccess = access.find(a => a.user.id === session.user?.id);
+
+      if (!userAccess) {
+        return new Response('Forbidden', { status: 403 });
+      }
+
+      return Response.json(documents, { status: 200 });
+    } else if (kind) {
+      // Get all documents of a specific kind for the user
+      const documents = await getDocumentsByKind({
+        kind: kind as ArtifactKind,
+        userId: session.user.id
+      });
+      return Response.json(documents, { status: 200 });
+    } else {
+      return new Response('Missing id or kind parameter', { status: 400 });
+    }
+  } catch (error) {
+    console.error('Failed to get documents:', error);
+    return new Response('Internal Server Error', { status: 500 });
   }
-
-  // Check if user has access to the document
-  const access = await getDocumentAccess({ 
-    documentId: document.id, 
-    documentCreatedAt: document.createdAt 
-  });
-  
-  const userAccess = access.find(a => a.user.id === session.user?.id);
-
-  if (!userAccess) {
-    return new Response('Forbidden', { status: 403 });
-  }
-
-  return Response.json(documents, { status: 200 });
 }
 
 export async function POST(request: Request) {
@@ -61,39 +81,40 @@ export async function POST(request: Request) {
     content,
     title,
     kind,
-  }: { content: string; title: string; kind: ArtifactKind } =
+    chatId,
+  }: { content: string; title: string; kind: ArtifactKind; chatId: string } =
     await request.json();
 
-  const documents = await getDocumentsById({ id });
-
-  if (documents.length > 0) {
-    const [document] = documents;
-    
-    // Check if user has edit access to the document
-    const access = await getDocumentAccess({ 
-      documentId: document.id, 
-      documentCreatedAt: document.createdAt 
-    });
-    
-    const userAccess = access.find(a => 
-      a.user.id === session.user?.id && 
-      ['owner', 'editor'].includes(a.role)
-    );
-
-    if (!userAccess) {
-      return new Response('Forbidden', { status: 403 });
+  try {
+    if (chatId) {
+      // Check if chat exists in database
+      const existingChat = await getChatById({ id: chatId });
+      
+      if (!existingChat) {
+        // Create new chat if it doesn't exist
+        await saveChat({
+          id: chatId,
+          userId: session.user.id,
+          title: `${title}`,
+        });
+      }
     }
+
+    // Create the document
+    const document = await saveDocument({
+      id,
+      content,
+      title,
+      kind,
+      userId: session.user.id,
+      chatId: chatId,
+    });
+
+    return Response.json(document, { status: 200 });
+  } catch (error) {
+    console.error('Failed to create document:', error);
+    return new Response('Internal Server Error', { status: 500 });
   }
-
-  const document = await saveDocument({
-    id,
-    content,
-    title,
-    kind,
-    userId: session.user.id,
-  });
-
-  return Response.json(document, { status: 200 });
 }
 
 export async function DELETE(request: Request) {

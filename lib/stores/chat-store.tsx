@@ -2,46 +2,57 @@
 
 import React, { createContext, useContext, useReducer, ReactNode, useCallback } from 'react';
 import { UIMessage } from 'ai';
-import { Chat, Thread } from '../db/schema';
+import { Chat, Thread, Document } from '../db/schema';
+import { generateUUID } from '../utils';
 
 interface ChatState {
   // Chats
   chats: Chat[];
   currentChat: Chat | null;
   currentChatMessages: UIMessage[];
+  chatId: string | null;
   
   // Threads
   threads: Thread[];
   currentThread: Thread | null;
   currentThreadMessages: UIMessage[];
   
+  // Documents
+  documents: Document[];
+  
   // Loading States
   isLoadingChats: boolean;
   isLoadingMessages: boolean;
   isLoadingThreads: boolean;
   isLoadingThreadMessages: boolean;
+  isLoadingDocuments: boolean;
 }
 
 type ChatAction =
   | { type: 'SET_CHATS'; payload: Chat[] }
   | { type: 'SET_CURRENT_CHAT'; payload: Chat | null }
   | { type: 'SET_CURRENT_CHAT_MESSAGES'; payload: UIMessage[] }
+  | { type: 'SET_CHAT_ID'; payload: string | null }
   | { type: 'SET_THREADS'; payload: Thread[] }
   | { type: 'SET_CURRENT_THREAD'; payload: Thread | null }
   | { type: 'SET_CURRENT_THREAD_MESSAGES'; payload: UIMessage[] }
-  | { type: 'SET_LOADING'; key: keyof Pick<ChatState, 'isLoadingChats' | 'isLoadingMessages' | 'isLoadingThreads' | 'isLoadingThreadMessages'>; value: boolean };
+  | { type: 'SET_DOCUMENTS'; payload: Document[] }
+  | { type: 'SET_LOADING'; key: keyof Pick<ChatState, 'isLoadingChats' | 'isLoadingMessages' | 'isLoadingThreads' | 'isLoadingThreadMessages' | 'isLoadingDocuments'>; value: boolean };
 
 const initialState: ChatState = {
   chats: [],
   currentChat: null,
   currentChatMessages: [],
+  chatId: generateUUID(),
   threads: [],
   currentThread: null,
   currentThreadMessages: [],
+  documents: [],
   isLoadingChats: false,
   isLoadingMessages: false,
   isLoadingThreads: false,
   isLoadingThreadMessages: false,
+  isLoadingDocuments: false,
 };
 
 function chatReducer(state: ChatState, action: ChatAction): ChatState {
@@ -52,12 +63,16 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, currentChat: action.payload };
     case 'SET_CURRENT_CHAT_MESSAGES':
       return { ...state, currentChatMessages: action.payload };
+    case 'SET_CHAT_ID':
+      return { ...state, chatId: action.payload };
     case 'SET_THREADS':
       return { ...state, threads: action.payload };
     case 'SET_CURRENT_THREAD':
       return { ...state, currentThread: action.payload };
     case 'SET_CURRENT_THREAD_MESSAGES':
       return { ...state, currentThreadMessages: action.payload };
+    case 'SET_DOCUMENTS':
+      return { ...state, documents: action.payload };
     case 'SET_LOADING':
       return { ...state, [action.key]: action.value };
     default:
@@ -70,15 +85,18 @@ interface ChatContextValue extends ChatState {
   setChats: (chats: Chat[]) => void;
   setCurrentChat: (chat: Chat | null) => void;
   setCurrentChatMessages: (messages: UIMessage[]) => void;
+  setChatId: (id: string | null) => void;
   setThreads: (threads: Thread[]) => void;
   setCurrentThread: (thread: Thread | null) => void;
   setCurrentThreadMessages: (messages: UIMessage[]) => void;
+  setDocuments: (documents: Document[]) => void;
   
   // Actions
   fetchChats: (userId: string) => Promise<void>;
   fetchChatMessages: (chatId: string) => Promise<void>;
   fetchThreads: (chatId: string) => Promise<void>;
   fetchThreadMessages: (threadId: string) => Promise<void>;
+  fetchDocuments: (chatId: string) => Promise<void>;
   prefetchThreadMessages: (threads: Thread[]) => Promise<void>;
 }
 
@@ -108,8 +126,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_CURRENT_THREAD_MESSAGES', payload: messages });
   }, []);
 
-  const setLoading = useCallback((key: keyof Pick<ChatState, 'isLoadingChats' | 'isLoadingMessages' | 'isLoadingThreads' | 'isLoadingThreadMessages'>, value: boolean) => {
+  const setDocuments = useCallback((documents: Document[]) => {
+    dispatch({ type: 'SET_DOCUMENTS', payload: documents });
+  }, []);
+
+  const setLoading = useCallback((key: keyof Pick<ChatState, 'isLoadingChats' | 'isLoadingMessages' | 'isLoadingThreads' | 'isLoadingThreadMessages' | 'isLoadingDocuments'>, value: boolean) => {
     dispatch({ type: 'SET_LOADING', key, value });
+  }, []);
+
+  const setChatId = useCallback((id: string | null) => {
+    dispatch({ type: 'SET_CHAT_ID', payload: id });
   }, []);
 
   const fetchChats = useCallback(async (userId: string) => {
@@ -168,26 +194,53 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   }, [setLoading, setThreads]);
 
+  const fetchDocuments = useCallback(async (chatId: string) => {
+    try {
+      setLoading('isLoadingDocuments', true);
+      const response = await fetch(`/api/documents?chatId=${chatId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch documents');
+      }
+      const documents = await response.json();
+      setDocuments(Array.isArray(documents) ? documents : []);
+    } catch (error) {
+      console.error('Failed to fetch documents:', error);
+      setDocuments([]);
+    } finally {
+      setLoading('isLoadingDocuments', false);
+    }
+  }, [setLoading, setDocuments]);
+
   const setCurrentChat = useCallback((chat: Chat | null) => {
     dispatch({ type: 'SET_CURRENT_CHAT', payload: chat });
+    // Set chatId to either the selected chat's id or generate a new UUID
+    dispatch({ type: 'SET_CHAT_ID', payload: chat?.id || generateUUID() });
     
     // Clear messages when switching chats
     dispatch({ type: 'SET_CURRENT_CHAT_MESSAGES', payload: [] });
     
-    // Clear threads and thread messages if no chat is selected
+    // Clear threads, thread messages, and documents if no chat is selected
     if (!chat?.id) {
       dispatch({ type: 'SET_THREADS', payload: [] });
       dispatch({ type: 'SET_CURRENT_THREAD', payload: null });
       dispatch({ type: 'SET_CURRENT_THREAD_MESSAGES', payload: [] });
+      dispatch({ type: 'SET_DOCUMENTS', payload: [] });
       return;
     }
     
-    // Fetch threads for the selected chat
+    // Start loading sequence:
+    // 1. Fetch chat messages (already handled by Chat component)
+    // 2. Fetch threads
     fetchThreads(chat.id).catch(error => {
       console.error('Failed to fetch threads:', error);
       dispatch({ type: 'SET_THREADS', payload: [] });
     });
-  }, [fetchThreads]);
+    
+    // 3. Fetch documents (non-blocking)
+    fetchDocuments(chat.id).catch(error => {
+      console.error('Failed to fetch documents:', error);
+    });
+  }, [fetchThreads, fetchDocuments]);
 
   const fetchThreadMessages = useCallback(async (threadId: string) => {
     try {
@@ -238,13 +291,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setChats,
     setCurrentChat,
     setCurrentChatMessages,
+    setChatId,
     setThreads,
     setCurrentThread,
     setCurrentThreadMessages,
+    setDocuments,
     fetchChats,
     fetchChatMessages,
     fetchThreads,
     fetchThreadMessages,
+    fetchDocuments,
     prefetchThreadMessages,
   };
 

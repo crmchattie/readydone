@@ -55,6 +55,7 @@ export async function POST(request: Request) {
 
     if (!session || !session.user || !session.user.id) {
       return new Response('Unauthorized', { status: 401 });
+
     }
 
     const userMessage = getMostRecentUserMessage(messages);
@@ -137,8 +138,8 @@ export async function POST(request: Request) {
             planTask: planTask,
             retrieveMemory: retrieveMemory({ chatId: id, messages, userId: session.user!.id! }),
             storeMemory: storeMemory({ chatId: id, messages, userId: session.user!.id! }),
-            createDocument: createDocument({ session, dataStream }),
-            updateDocument: updateDocument({ session, dataStream }),
+            createDocument: createDocument({ session, dataStream, chatId: id }),
+            updateDocument: updateDocument({ session, dataStream, chatId: id }),
             requestSuggestions: requestSuggestions({
               session,
               dataStream,

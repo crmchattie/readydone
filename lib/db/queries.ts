@@ -1557,3 +1557,75 @@ export async function shouldCreateNewSummary(chatId: string): Promise<boolean> {
   // Create new summary when we have 5000+ new characters
   return totalChars >= 5000;
 }
+
+export async function getDocumentsByKind({
+  kind,
+  userId,
+}: {
+  kind: ArtifactKind;
+  userId: string;
+}) {
+  const documents = await db
+    .select({
+      id: document.id,
+      title: document.title,
+      content: document.content,
+      kind: document.kind,
+      chatId: document.chatId,
+      createdAt: document.createdAt,
+    })
+    .from(document)
+    .innerJoin(
+      documentAccess,
+      and(
+        eq(documentAccess.documentId, document.id),
+        eq(documentAccess.documentCreatedAt, document.createdAt),
+        eq(documentAccess.userId, userId)
+      )
+    )
+    .where(eq(document.kind, kind))
+    .orderBy(desc(document.createdAt));
+
+  return documents;
+}
+
+export async function getDocumentsByChatId({
+  chatId,
+  userId,
+}: {
+  chatId: string;
+  userId: string;
+}) {
+  try {
+    // Get all documents associated with the chat where the user has access
+    const documents = await db
+      .select({
+        document: document,
+        access: documentAccess,
+      })
+      .from(document)
+      .innerJoin(
+        documentAccess,
+        and(
+          eq(documentAccess.documentId, document.id),
+          eq(documentAccess.documentCreatedAt, document.createdAt),
+          eq(documentAccess.userId, userId)
+        )
+      )
+      .where(eq(document.chatId, chatId))
+      .orderBy(desc(document.createdAt));
+
+    // Group documents by ID and only return the latest version
+    const latestDocuments = documents.reduce((acc, { document: doc }) => {
+      if (!acc[doc.id] || doc.createdAt > acc[doc.id].createdAt) {
+        acc[doc.id] = doc;
+      }
+      return acc;
+    }, {} as Record<string, typeof document.$inferSelect>);
+
+    return Object.values(latestDocuments);
+  } catch (error) {
+    console.error('Failed to get documents by chat id from database');
+    throw error;
+  }
+}

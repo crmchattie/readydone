@@ -7,9 +7,10 @@ import { documentHandlersByArtifactKind } from '@/lib/artifacts/server';
 interface UpdateDocumentProps {
   session: Session;
   dataStream: DataStreamWriter;
+  chatId: string;
 }
 
-export const updateDocument = ({ session, dataStream }: UpdateDocumentProps) =>
+export const updateDocument = ({ session, dataStream, chatId }: UpdateDocumentProps) =>
   tool({
     description: 'Update a document with the given description.',
     parameters: z.object({
@@ -46,6 +47,7 @@ export const updateDocument = ({ session, dataStream }: UpdateDocumentProps) =>
         description,
         dataStream,
         session,
+        chatId
       });
 
       dataStream.writeData({ type: 'finish', content: '' });

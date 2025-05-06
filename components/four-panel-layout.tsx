@@ -74,7 +74,7 @@ function FourPanelLayoutInner({
   initialChats,
 }: FourPanelLayoutProps) {
   const { selectedThreadId, setSelectedThreadId } = useNavigation();
-  const { currentChat, currentChatMessages, setChats } = useChatStore();
+  const { currentChat, currentChatMessages, setChats, chatId } = useChatStore();
   
   // Initialize chat store with initial chats
   useEffect(() => {
@@ -124,12 +124,13 @@ function FourPanelLayoutInner({
         >
           {({ toggle }) => (
             <Chat
-              id={currentChat?.id || ''}
+              id={chatId || ''}
               initialMessages={currentChatMessages}
               selectedChatModel={selectedChatModel}
               selectedVisibilityType={selectedVisibilityType}
               isReadonly={isReadonly}
               toggle={toggle}
+              isThreadChat={false}
             />
           )}
         </Panel>
