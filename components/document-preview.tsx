@@ -93,7 +93,8 @@ export function DocumentPreview({
           content: artifact.content,
           id: artifact.documentId,
           createdAt: new Date(),
-          chatId: null,
+          chatId: '',
+          summary: null
         }
       : null;
 

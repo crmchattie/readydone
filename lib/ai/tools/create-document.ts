@@ -7,6 +7,11 @@ import {
   documentHandlersByArtifactKind,
 } from '@/lib/artifacts/server';
 
+// Debug helper
+const debug = (message: string, data?: any) => {
+  console.debug(`[Create Document Tool] ${message}`, data ? data : '');
+};
+
 interface CreateDocumentProps {
   session: Session;
   dataStream: DataStreamWriter;
@@ -22,52 +27,71 @@ export const createDocument = ({ session, dataStream, chatId }: CreateDocumentPr
       kind: z.enum(artifactKinds),
     }),
     execute: async ({ title, kind }) => {
-      const id = generateUUID();
+      debug('Starting document creation', { title, kind, chatId });
+      
+      try {
+        const id = generateUUID();
+        debug('Generated document ID', { id });
 
-      dataStream.writeData({
-        type: 'kind',
-        content: kind,
-      });
+        debug('Writing kind to data stream');
+        dataStream.writeData({
+          type: 'kind',
+          content: kind,
+        });
 
-      dataStream.writeData({
-        type: 'id',
-        content: id,
-      });
+        debug('Writing ID to data stream');
+        dataStream.writeData({
+          type: 'id',
+          content: id,
+        });
 
-      dataStream.writeData({
-        type: 'title',
-        content: title,
-      });
+        debug('Writing title to data stream');
+        dataStream.writeData({
+          type: 'title',
+          content: title,
+        });
 
-      dataStream.writeData({
-        type: 'clear',
-        content: '',
-      });
+        debug('Clearing data stream');
+        dataStream.writeData({
+          type: 'clear',
+          content: '',
+        });
 
-      const documentHandler = documentHandlersByArtifactKind.find(
-        (documentHandlerByArtifactKind) =>
-          documentHandlerByArtifactKind.kind === kind,
-      );
+        debug('Finding document handler', { kind });
+        const documentHandler = documentHandlersByArtifactKind.find(
+          (documentHandlerByArtifactKind) =>
+            documentHandlerByArtifactKind.kind === kind,
+        );
 
-      if (!documentHandler) {
-        throw new Error(`No document handler found for kind: ${kind}`);
+        if (!documentHandler) {
+          debug('No document handler found', { kind });
+          throw new Error(`No document handler found for kind: ${kind}`);
+        }
+        debug('Document handler found', { handlerKind: documentHandler.kind });
+
+        debug('Creating document using handler');
+        await documentHandler.onCreateDocument({
+          id,
+          title,
+          dataStream,
+          session,
+          chatId
+        });
+        debug('Document created successfully');
+
+        debug('Finishing data stream');
+        dataStream.writeData({ type: 'finish', content: '' });
+
+        debug('Document creation completed');
+        return {
+          id,
+          title,
+          kind,
+          content: 'A document was created and is now visible to the user.',
+        };
+      } catch (error) {
+        debug('Document creation failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+        throw error;
       }
-
-      await documentHandler.onCreateDocument({
-        id,
-        title,
-        dataStream,
-        session,
-        chatId
-      });
-
-      dataStream.writeData({ type: 'finish', content: '' });
-
-      return {
-        id,
-        title,
-        kind,
-        content: 'A document was created and is now visible to the user.',
-      };
     },
   });

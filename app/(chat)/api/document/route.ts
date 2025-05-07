@@ -9,9 +9,6 @@ import {
   saveChat,
   getChatById,
 } from '@/lib/db/queries';
-import { documentAccess } from '@/lib/db/schema';
-import { db } from '@/lib/db';
-import { generateUUID } from '@/lib/utils';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

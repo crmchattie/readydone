@@ -1,6 +1,20 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { getFirecrawlClient } from '@/lib/firecrawl';
+import { RateLimiter } from '@/lib/utils';
+
+interface FirecrawlError {
+  statusCode?: number;
+  message: string;
+}
+
+// Debug helper
+const debug = (message: string, data?: any) => {
+  console.debug(`[Search Web Tool] ${message}`, data ? data : '');
+};
+
+// Create a singleton rate limiter instance (6 requests per minute)
+const rateLimiter = new RateLimiter({ maxRequests: 6, perSeconds: 60 });
 
 export const searchWeb = tool({
   description: 'Search the web for information using Firecrawl\'s search API',
@@ -13,8 +27,17 @@ export const searchWeb = tool({
     includeContent: z.boolean().optional().describe('Whether to include scraped content (default: true)'),
   }),
   execute: async ({ query, limit = 5, lang, country, tbs, includeContent = true }) => {
+    debug('Starting web search', { query, limit, lang, country, tbs, includeContent });
+    
     try {
+      debug('Waiting for rate limit token');
+      await rateLimiter.waitForToken();
+      debug('Rate limit token acquired');
+
+      debug('Initializing Firecrawl client');
       const client = getFirecrawlClient();
+
+      debug('Executing search request');
       const results = await client.search({
         query,
         limit,
@@ -23,12 +46,15 @@ export const searchWeb = tool({
         tbs,
         scrapeOptions: includeContent ? { formats: ['markdown', 'links'] } : undefined,
       });
+      debug('Search completed', { resultCount: results.length });
 
       if (results.length === 0) {
+        debug('No results found');
         return 'No search results found.';
       }
 
-      return `Search results for "${query}":\n\n${results
+      debug('Processing search results');
+      const formattedResults = `Search results for "${query}":\n\n${results
         .map((result, index) => {
           let content = `${index + 1}. ${result.title}\n   URL: ${result.url}\n   Description: ${result.description}\n`;
           
@@ -44,7 +70,15 @@ export const searchWeb = tool({
           return content;
         })
         .join('\n')}`;
+      
+      debug('Results formatted successfully');
+      return formattedResults;
     } catch (error) {
+      const firecrawlError = error as FirecrawlError;
+      if (firecrawlError.statusCode === 429) {
+        debug('Rate limit exceeded');
+        return 'Rate limit reached. Please try again in a minute.';
+      }
       console.error('Failed to perform web search:', error);
       throw error;
     }

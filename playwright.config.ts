@@ -1,11 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
+import { config } from 'dotenv';
+import path from 'path';
 
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
  */
-import { config } from 'dotenv';
-
 config({
   path: '.env',
 });
@@ -95,6 +95,13 @@ export default defineConfig({
       name: 'routes',
       testMatch: /routes\/.*.test.ts/,
       dependencies: [],
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+    },
+    {
+      name: 'tools',
+      testMatch: /ai\/tools\/.*.test.ts/,
       use: {
         ...devices['Desktop Chrome'],
       },

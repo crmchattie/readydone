@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/app/(auth)/auth';
 import { google } from 'googleapis';
-import { getUserOAuthCredentials, updateUser } from '@/lib/db/queries';
-import { eq, and } from 'drizzle-orm';
-import { db } from '@/lib/db';
-import { userOAuthCredentials } from '@/lib/db/schema';
+import { getUserOAuthCredentials, updateUser, deleteUserOAuthCredentialsByProvider } from '@/lib/db/queries';
 
 export async function DELETE(request: Request) {
   // Check referrer to determine where to redirect
@@ -80,19 +77,9 @@ export async function DELETE(request: Request) {
     }
     
     // Delete the OAuth credentials for this provider and user
-    await db
-      .delete(userOAuthCredentials)
-      .where(
-        and(
-          eq(userOAuthCredentials.userId, session.user.id),
-          eq(userOAuthCredentials.providerName, 'gmail')
-        )
-      );
-
-    // Update user's gmailConnected status
-    await updateUser({
-      id: session.user.id,
-      gmailConnected: false
+    await deleteUserOAuthCredentialsByProvider({
+      userId: session.user.id,
+      providerName: 'gmail'
     });
     
     return NextResponse.json({ 

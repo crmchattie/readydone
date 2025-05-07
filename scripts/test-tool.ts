@@ -264,7 +264,7 @@ const question = (query: string): Promise<string> => {
 // Helper to print tool parameters
 function printToolParameters(toolName: keyof typeof tools, tools: any) {
   const toolDef = tools[toolName];
-  const tool = 'params' in toolDef ? toolDef.tool : toolDef;
+  const tool = 'params' in toolDef ? toolDef.tool(toolDef.params) : toolDef.tool;
 
   if (tool?.parameters) {
     console.log('\nTool parameters:');
@@ -326,6 +326,9 @@ async function main() {
 
     // Validate required parameters are provided
     const tool = toolDef.tool;
+    if (!tool || typeof tool !== 'object' || !('parameters' in tool)) {
+      throw new Error('Invalid tool definition');
+    }
     const requiredParams = Object.entries(tool.parameters.shape)
       .filter(([_, value]: [string, any]) => value._def.typeName !== 'ZodOptional')
       .map(([key]) => key);

@@ -35,12 +35,12 @@ export function OnboardingForm() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isGmailConnected, setIsGmailConnected] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     usageType: '',
     referralSource: '',
-    gmailConnected: false,
   });
 
   const { execute, result } = useAction(saveOnboarding);
@@ -67,11 +67,12 @@ export function OnboardingForm() {
           setCurrentStep(1);
         }
 
-        // Check Gmail connection
+        // Check Gmail connection using the OAuth credentials endpoint
         const response = await fetch('/api/gmail/status');
         if (response.ok) {
           const data = await response.json();
           isConnected = data.connected;
+          setIsGmailConnected(data.connected);
         }
 
         // Check if user data exists
@@ -95,12 +96,8 @@ export function OnboardingForm() {
           const parsedData = JSON.parse(storedData);
           setFormData(prev => ({ 
             ...prev, 
-            ...parsedData,
-            // Ensure Gmail connection status takes precedence
-            gmailConnected: isConnected 
+            ...parsedData
           }));
-        } else {
-          setFormData(prev => ({ ...prev, gmailConnected: isConnected }));
         }
       } catch (error) {
         console.error('Error checking initial data:', error);
@@ -172,7 +169,6 @@ export function OnboardingForm() {
       lastName: formData.lastName,
       usageType: formData.usageType as 'personal' | 'business' | 'both',
       referralSource: formData.referralSource,
-      gmailConnected: formData.gmailConnected,
     });
   };
 
@@ -255,10 +251,10 @@ export function OnboardingForm() {
               type="button"
               onClick={handleGmailConnect}
               className="w-full"
-              variant={formData.gmailConnected ? "secondary" : "default"}
-              disabled={isConnecting || formData.gmailConnected}
+              variant={isGmailConnected ? "secondary" : "default"}
+              disabled={isConnecting || isGmailConnected}
             >
-              {isConnecting ? 'Connecting...' : formData.gmailConnected ? '✓ Gmail Connected' : 'Connect Gmail'}
+              {isConnecting ? 'Connecting...' : isGmailConnected ? '✓ Gmail Connected' : 'Connect Gmail'}
             </Button>
           </div>
         )}

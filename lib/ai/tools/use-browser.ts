@@ -8,6 +8,11 @@ import {
   executeAction
 } from '@/lib/browserbase/service';
 
+// Debug helper
+const debug = (message: string, data?: any) => {
+  console.debug(`[Browser Tool] ${message}`, data ? data : '');
+};
+
 export const useBrowser = tool({
   description: 'Browse a website and extract information using an AI-powered browser. The tool will autonomously navigate and interact with the website to complete the given task.',
   parameters: z.object({
@@ -24,13 +29,23 @@ export const useBrowser = tool({
     maxAttempts: z.number().optional().default(10).describe('Maximum number of actions to attempt. Default is 10.'),
   }),
   execute: async ({ url, task, extractionSchema, variables, maxAttempts = 10 }) => {
+    debug('Starting browser automation', { 
+      url, 
+      task, 
+      hasVariables: !!variables,
+      hasExtractionSchema: !!extractionSchema,
+      maxAttempts 
+    });
+
     try {
-      // Initialize Stagehand and create a browser session
+      debug('Initializing Stagehand and creating browser session');
       const { stagehand, session } = await createStagehandInstance();
       const page = stagehand.page;
+      debug('Browser session created successfully');
 
-      // Navigate to the URL
+      debug('Navigating to URL', { url });
       await page.goto(url);
+      debug('Navigation completed');
 
       let result: any = {
         success: false,
@@ -40,25 +55,32 @@ export const useBrowser = tool({
         taskCompleted: false
       };
 
-      // Use autonomous planning to complete the task
+      debug('Starting autonomous task execution');
       let attempts = 0;
       
       while (!result.taskCompleted && attempts < maxAttempts) {
-        // Plan next action based on current page state and task
+        debug('Planning next action', { attempt: attempts + 1, maxAttempts });
         const plan = await planNextAction(page, task);
+        debug('Action planned', { 
+          nextAction: plan.nextAction,
+          reason: plan.reason,
+          shouldExtract: plan.extractAfter
+        });
         
-        // Execute the planned action
+        debug('Executing planned action');
         const success = await executeAction(page, plan.nextAction, variables);
+        debug('Action execution result', { success });
+
         if (success) {
+          debug('Action succeeded, recording action');
           result.actions.push({
             action: plan.nextAction,
             reason: plan.reason,
             timestamp: new Date().toISOString()
           });
           
-          // Check if we should extract data after this action
           if (plan.extractAfter) {
-            // Try to extract data based on the task
+            debug('Attempting data extraction after successful action');
             const schema = extractionSchema || ExtractDataSchema;
             try {
               const extractedData = await page.extract({
@@ -67,16 +89,22 @@ export const useBrowser = tool({
               });
 
               if (extractedData) {
+                debug('Data extraction successful', { 
+                  dataSize: JSON.stringify(extractedData).length 
+                });
                 result.data = extractedData;
                 result.taskCompleted = true;
+              } else {
+                debug('No data extracted');
               }
             } catch (error) {
-              console.warn('Data extraction failed, continuing with task:', error);
+              debug('Data extraction failed', { 
+                error: error instanceof Error ? error.message : 'Unknown error' 
+              });
             }
           }
         } else {
-          console.warn(`Action failed: ${plan.nextAction}`);
-          // Add failed action to history for debugging
+          debug('Action failed', { failedAction: plan.nextAction });
           result.actions.push({
             action: plan.nextAction,
             reason: plan.reason,
@@ -86,18 +114,29 @@ export const useBrowser = tool({
         }
         
         attempts++;
+        debug('Attempt completed', { 
+          currentAttempt: attempts, 
+          remaining: maxAttempts - attempts,
+          taskCompleted: result.taskCompleted
+        });
       }
 
-      // If we haven't extracted data yet but have taken actions, try one final extraction
       if (!result.data && result.actions.length > 0) {
+        debug('Attempting final data extraction');
         const schema = extractionSchema || ExtractDataSchema;
         try {
           result.data = await page.extract({
             instruction: task,
             schema: schema as any,
           });
+          debug('Final extraction completed', { 
+            success: !!result.data,
+            dataSize: result.data ? JSON.stringify(result.data).length : 0
+          });
         } catch (error) {
-          console.warn('Final data extraction failed:', error);
+          debug('Final data extraction failed', { 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+          });
         }
       }
 
@@ -105,12 +144,25 @@ export const useBrowser = tool({
       result.url = page.url();
       result.attempts = attempts;
 
-      // Clean up
+      debug('Cleaning up browser session');
       await closeBrowserSession(session);
+      debug('Browser session closed');
+
+      debug('Task execution completed', {
+        success: result.success,
+        taskCompleted: result.taskCompleted,
+        totalAttempts: attempts,
+        actionsCount: result.actions.length,
+        hasData: !!result.data,
+        finalUrl: result.url
+      });
 
       return result;
     } catch (error) {
-      console.error('Browser automation error:', error);
+      debug('Browser automation failed', { 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       throw error;
     }
   },

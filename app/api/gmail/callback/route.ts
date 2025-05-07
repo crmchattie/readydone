@@ -56,12 +56,6 @@ export async function GET(request: Request) {
       scopes: tokens.scope || GMAIL_SCOPES_STRING,
       expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null
     });
-
-    // Update user's gmailConnected status
-    await updateUser({
-      id: session.user.id,
-      gmailConnected: true
-    });
     
     // Set up Gmail watch notifications
     try {

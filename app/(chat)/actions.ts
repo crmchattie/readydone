@@ -7,9 +7,12 @@ import {
   deleteMessagesByChatIdAfterTimestamp,
   getMessageById,
   updateChatVisiblityById,
+  getLatestChatSummary,
+  getMessagesByChatId,
 } from '@/lib/db/queries';
 import { VisibilityType } from '@/components/visibility-selector';
 import { myProvider } from '@/lib/ai/providers';
+import type { ArtifactKind } from '@/components/artifact';
 
 export async function saveChatModelAsCookie(model: string) {
   const cookieStore = await cookies();
@@ -54,35 +57,50 @@ export async function updateChatVisibility({
 }
 
 export async function summarizeMessages(
-  messages: Message[],
-  prompt: string = 'Summarize the following conversation in a concise manner, capturing the key points and context:'
+  chatId: string,
+  prompt: string
 ): Promise<string> {
-  try {
-    // Sort messages by timestamp (newest first) and limit to last 10 messages
-    const recentMessages = messages
-      .sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0))
-      .slice(0, 10);
+  // Get the latest summary if it exists
+  const latestSummary = await getLatestChatSummary({ chatId });
+  
+  // Get all messages since the last summary
+  const messages = await getMessagesByChatId({ id: chatId });
+  const unsummarizedMessages = latestSummary 
+    ? messages.filter(msg => msg.id !== latestSummary.lastMessageId && 
+        msg.createdAt > latestSummary.createdAt)
+    : messages;
 
-    // Format messages and check total length
-    let messageContent = '';
-    for (const msg of recentMessages) {
-      const newContent = `${msg.role}: ${msg.content}\n`;
-      // If adding this message would exceed 500,000 characters, stop
-      if (messageContent.length + newContent.length > 500_000) {
-        break;
-      }
-      messageContent += newContent;
-    }
-
-    const { text } = await generateText({
-      model: myProvider.languageModel('chat-model-small'),
-      system: prompt,
-      prompt: `${messageContent}\n\nSummary:`,
-    });
-
-    return text.trim();
-  } catch (error) {
-    console.error('Failed to summarize messages:', error);
-    throw error;
+  if (unsummarizedMessages.length === 0) {
+    return latestSummary?.summary || '';
   }
+
+  const context = latestSummary 
+    ? `Previous summary:\n${latestSummary.summary}\n\nNew messages to incorporate:`
+    : 'Summarize these messages:';
+
+  const { text } = await generateText({
+    model: myProvider.languageModel('chat-model-small'),
+    system: 'You are a conversation summarizer. Create concise but informative summaries that capture key points, decisions, and context.',
+    prompt: `${context}\n\n${unsummarizedMessages
+      .map(msg => `${msg.role}: ${JSON.stringify(msg.parts)}`)
+      .join('\n')}\n\n${prompt}`,
+  });
+
+  return text;
 }
+
+export async function generateDocumentSummary(content: string, kind: ArtifactKind): Promise<string> {
+  const prompt = kind === 'code' 
+    ? 'Summarize this code snippet focusing on its main functionality and purpose:'
+    : kind === 'sheet'
+    ? 'Summarize this spreadsheet data focusing on its structure and key information:'
+    : 'Summarize this text focusing on its main points and key information:';
+
+  const { text } = await generateText({
+    model: myProvider.languageModel('chat-model-small'),
+    system: 'You are a document summarization assistant. Create concise, informative summaries that capture the essence of the content.',
+    prompt: `${prompt}\n\n${content}`,
+  });
+
+  return text;
+} 

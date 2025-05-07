@@ -9,7 +9,7 @@ const DOCUMENT_TYPES = [
   { kind: 'text' as ArtifactKind, icon: FileIcon, label: 'Documents' },
   { kind: 'code' as ArtifactKind, icon: CodeIcon, label: 'Code' },
   { kind: 'sheet' as ArtifactKind, icon: LineChartIcon, label: 'Spreadsheets' },
-  { kind: 'image' as ArtifactKind, icon: ImageIcon, label: 'Images' }
+//   { kind: 'image' as ArtifactKind, icon: ImageIcon, label: 'Images' }
 ] as const;
 
 export function DocumentTypeIcons() {

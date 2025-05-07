@@ -12,7 +12,6 @@ const onboardingSchema = z.object({
   lastName: z.string().min(1).max(64),
   usageType: z.enum(['personal', 'business', 'both']),
   referralSource: z.string().optional(),
-  gmailConnected: z.boolean(),
 });
 
 export const saveOnboarding = actionClient

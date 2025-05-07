@@ -72,7 +72,7 @@ const PureChatItem = ({
             {isCollapsed ? (
               <MessageCircle className="size-4" />
             ) : (
-              <span>{chat.title}</span>
+              <span className="pr-8 pl-2 truncate w-full text-left">{chat.title}</span>
             )}
           </div>
         </Button>

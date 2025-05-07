@@ -11,7 +11,6 @@ export function generateDummyUser(): User {
     firstName: null,
     lastName: null,
     usageType: null,
-    gmailConnected: false,
     referralSource: null,
     onboardingCompletedAt: null,
     stripeCustomerId: null

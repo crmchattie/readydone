@@ -1,25 +1,31 @@
-import { tool, generateText } from 'ai';
+import { tool, generateText, Message } from 'ai';
 import { z } from 'zod';
 import { myProvider } from '@/lib/ai/providers';
 import { getContextForInteraction, type ConversationContext } from '@/lib/ai/context';
-import { startCall } from '../../vapi';
-import type { Call, CallMessagesItem } from '@vapi-ai/server-sdk/api';
-import { saveThread, saveThreadMessages } from '@/lib/db/queries';
+import { startCall, getCall } from '../../vapi';
+import { saveThread, saveThreadMessages, getExternalPartyByPhone, saveExternalParty } from '@/lib/db/queries';
 import { generateUUID } from '@/lib/utils';
+
+// Debug helper
+const debug = (message: string, data?: any) => {
+  console.debug(`[Call Phone Tool] ${message}`, data ? data : '');
+};
 
 type ThreadMessageRole = 'user' | 'ai' | 'external';
 
 async function generateFirstMessage(context: ConversationContext) {
+  debug('Generating first message', { contextSummary: context.summary?.substring(0, 100) });
+  
   const { text } = await generateText({
-    model: myProvider.languageModel('chat-model'),
+    model: myProvider.languageModel('chat-model-large'),
     system: `You are an AI assistant crafting an opening message for a phone call. Generate a professional, natural first message that:
     1. Greets the recipient appropriately
     2. States your name and purpose clearly
     3. Begins addressing the specific task
     
     Consider the following context:
-    ${context.historicalContext}${
-      context.recentContext ? `\n\nRecent developments:\n${context.recentContext}` : ''
+    ${context.summary}${
+      context.recentContext ? `\n\nRecent messages:\n${context.recentContext}` : ''
     }
     
     The message should be concise, professional, and focused on the specific task while maintaining a natural, conversational tone.
@@ -27,12 +33,15 @@ async function generateFirstMessage(context: ConversationContext) {
     prompt: `Generate an appropriate opening message for this phone call based on the context provided.`,
   });
 
+  debug('First message generated', { messageLength: text.length });
   return text.trim();
 }
 
 async function generateSystemPrompt(context: ConversationContext) {
+  debug('Generating system prompt', { contextSummary: context.summary?.substring(0, 100) });
+  
   const { text } = await generateText({
-    model: myProvider.languageModel('chat-model'),
+    model: myProvider.languageModel('chat-model-large'),
     system: `Create a system prompt for an AI assistant making a phone call. The prompt should follow this structure:
 
 [Identity]
@@ -75,69 +84,78 @@ async function generateSystemPrompt(context: ConversationContext) {
 - Appropriate documentation of important information
 
 Consider this context:
-${context.historicalContext}${
-      context.recentContext ? `\n\nRecent developments:\n${context.recentContext}` : ''
+${context.summary}${
+      context.recentContext ? `\n\nRecent messages:\n${context.recentContext}` : ''
     }`,
     prompt: `Create a detailed system prompt for an AI assistant that needs to handle this phone call based on the context provided.`,
   });
 
+  debug('System prompt generated', { promptLength: text.length });
   return text.trim();
 }
 
-export const callPhone = tool({
-  description: 'Make an outbound phone call using Vapi AI',
-  parameters: z.object({
-    messages: z.array(z.any()).describe('The conversation messages to use for context'),
-    chatId: z.string().describe('The chat ID to get context from'),
-    phoneNumber: z.string().describe('The phone number to call'),
-    earliestAt: z.string().optional().describe('ISO 8601 date-time string for earliest call time'),
-    latestAt: z.string().optional().describe('ISO 8601 date-time string for latest call time'),
-  }),
-  execute: async ({ messages, chatId, phoneNumber, earliestAt, latestAt }) => {
-    try {
-      // Get context once
-      const context = await getContextForInteraction(chatId, messages);
+interface CallPhoneProps {
+  messages: Message[];
+  chatId: string;
+}
 
-      // Generate the first message and system prompt based on the context
+export const callPhone = ({ chatId, messages }: CallPhoneProps) =>
+  tool({
+    description: 'Make an outbound phone call using Vapi AI',
+    parameters: z.object({
+      phoneNumber: z.string().describe('The phone number to call'),
+      earliestAt: z.string().optional().describe('ISO 8601 date-time string for earliest call time'),
+      latestAt: z.string().optional().describe('ISO 8601 date-time string for latest call time'),
+  }),
+  execute: async ({ phoneNumber, earliestAt, latestAt }) => {
+    debug('Starting phone call execution', { phoneNumber, earliestAt, latestAt });
+    
+    try {
+      debug('Fetching conversation context');
+      const context = await getContextForInteraction(chatId, messages);
+      debug('Context fetched successfully');
+
+      debug('Generating initial messages');
       const firstMessage = await generateFirstMessage(context);
       const systemPrompt = await generateSystemPrompt(context);
+      debug('Initial messages generated');
 
-      // Start the Vapi call with our generated messages
-      const call = await startCall({
-        phoneNumber,
-        firstMessage,
-        systemPrompt,
-      }) as Call;
-
-      // Extract call ID from response
-      const callId = call.id;
-
-      if (!callId) {
-        throw new Error('Failed to get call ID from response');
+      // Get or create external party for the phone number
+      let externalParty = await getExternalPartyByPhone({ phone: phoneNumber });
+      if (!externalParty) {
+        await saveExternalParty({
+          name: `Phone Contact ${phoneNumber}`, // Basic name from phone number
+          email: null,
+          phone: phoneNumber,
+          type: 'phone_contact',
+          address: null,
+          latitude: null,
+          longitude: null,
+          website: null
+        });
+        externalParty = await getExternalPartyByPhone({ phone: phoneNumber });
       }
 
-      // Create a thread for the call
+      if (!externalParty) {
+        throw new Error('Failed to create or retrieve external party');
+      }
+
+      // Create thread
       const threadId = generateUUID();
       await saveThread({
         id: threadId,
         chatId,
-        externalPartyId: phoneNumber,
-        name: `Phone call to ${phoneNumber}`,
-        externalSystemId: callId,
+        externalPartyId: externalParty.id,
+        name: `Call to ${phoneNumber}`,
+        externalSystemId: undefined, // Will be updated after call creation
         status: 'awaiting_reply',
         lastMessagePreview: firstMessage
       });
+      debug('Thread created', { threadId });
 
-      // Save initial messages
+      debug('Saving initial message');
       await saveThreadMessages({
         messages: [
-          {
-            threadId,
-            role: 'ai' as const,
-            content: systemPrompt,
-            externalMessageId: null,
-            subject: null
-          },
           {
             threadId,
             role: 'ai' as const,
@@ -147,41 +165,75 @@ export const callPhone = tool({
           }
         ]
       });
+      debug('Initial message saved');
 
-      // Save any messages from the call response
-      if (call.messages && Array.isArray(call.messages) && call.messages.length > 0) {
-        const callMessages = call.messages.map(msg => {
-          // Extract content based on message type
-          let content = '';
-          if ('result' in msg) {
-            // Handle ToolCallResultMessage
-            content = msg.result;
-          } else if ('message' in msg) {
-            // Handle UserMessage, SystemMessage, BotMessage, ToolCallMessage
-            content = msg.message;
-          }
+      debug('Initiating Vapi call');
+      const call = await startCall({
+        phoneNumber,
+        firstMessage,
+        systemPrompt,
+        earliestAt,
+        latestAt,
+        threadId
+      });
+      debug('Vapi call initiated', { callId: call.id });
 
-          return {
-            threadId,
-            role: msg.role === 'user' ? 'external' as const : 'ai' as const,
-            content,
-            externalMessageId: null,
-            subject: null
-          };
-        });
-        
-        await saveThreadMessages({
-          messages: callMessages
-        });
-      }
+      // Update thread with call ID
+      await saveThread({
+        id: threadId,
+        chatId,
+        externalPartyId: externalParty.id,
+        name: `Call to ${phoneNumber}`,
+        externalSystemId: call.id,
+        status: 'awaiting_reply',
+        lastMessagePreview: firstMessage
+      });
 
+      debug('Call execution completed successfully');
       return {
-        messages: call.messages || []
+        callId: call.id,
+        threadId,
+        messages: []
       };
 
     } catch (error) {
+      debug('Call execution failed', { error: error instanceof Error ? error.message : 'Unknown error' });
       console.error('Failed to make phone call:', error);
       throw error;
     }
   },
-}); 
+});
+
+// Function to save call messages
+export const saveCallMessages = async (callId: string, threadId: string) => {
+  try {
+    const call = await getCall(callId);
+    if (!call.messages || !Array.isArray(call.messages)) {
+      return;
+    }
+
+    const callMessages = call.messages.map(msg => {
+      let content = '';
+      if ('result' in msg) {
+        content = msg.result;
+      } else if ('message' in msg) {
+        content = msg.message;
+      }
+
+      return {
+        threadId,
+        role: msg.role === 'user' ? 'external' as const : 'ai' as const,
+        content,
+        externalMessageId: null,
+        subject: null
+      };
+    });
+
+    await saveThreadMessages({
+      messages: callMessages
+    });
+  } catch (error) {
+    console.error('Failed to save call messages:', error);
+    throw error;
+  }
+}; 

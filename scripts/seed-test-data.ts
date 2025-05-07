@@ -1,11 +1,10 @@
 import 'dotenv/config';
 import { config } from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
-import { chat, thread, threadMessage, externalParty, chatParticipant, message } from '../lib/db/schema';
+import { user, type User, chat, thread, threadMessage, externalParty, chatParticipant, message } from '../lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { user, type User } from '@/lib/db/schema';
 // Load .env.local
 config({ path: '.env' });
 
@@ -46,7 +45,6 @@ async function seedTestData() {
         firstName: 'Test',
         lastName: 'User',
         usageType: null,
-        gmailConnected: false,
         referralSource: null,
         onboardingCompletedAt: null,
         createdAt: new Date(),

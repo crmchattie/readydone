@@ -58,6 +58,7 @@ import {
 import type { ArtifactKind } from '@/components/artifact';
 import { generateUUID, executeWithRetry } from '../utils';
 import { generateEmbeddings, generateEmbedding } from '../ai/embedding';
+import { generateDocumentSummary } from '@/app/(chat)/actions';
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -302,9 +303,11 @@ export async function saveDocument({
   kind: ArtifactKind;
   content: string;
   userId: string;
-  chatId?: string;
+  chatId: string;
 }) {
   try {
+    const summary = await generateDocumentSummary(content, kind);
+    
     const doc = await db
       .insert(document)
       .values({
@@ -312,6 +315,7 @@ export async function saveDocument({
         title,
         kind,
         content,
+        summary,
         chatId,
         createdAt: new Date(),
       })
@@ -949,7 +953,6 @@ export async function updateUser({
   lastName,
   email,
   onboardingCompletedAt,
-  gmailConnected,
   usageType,
   referralSource,
 }: {
@@ -958,7 +961,6 @@ export async function updateUser({
   lastName?: string;
   email?: string;
   onboardingCompletedAt?: Date;
-  gmailConnected?: boolean;
   usageType?: 'personal' | 'business' | 'both';
   referralSource?: string;
 }) {
@@ -968,7 +970,6 @@ export async function updateUser({
     if (lastName !== undefined) values.lastName = lastName;
     if (email !== undefined) values.email = email;
     if (onboardingCompletedAt !== undefined) values.onboardingCompletedAt = onboardingCompletedAt;
-    if (gmailConnected !== undefined) values.gmailConnected = gmailConnected;
     if (usageType !== undefined) values.usageType = usageType;
     if (referralSource !== undefined) values.referralSource = referralSource;
 
@@ -1536,7 +1537,21 @@ export async function shouldCreateNewSummary(chatId: string): Promise<boolean> {
     .orderBy(desc(chatSummaries.createdAt))
     .limit(1);
 
-  if (lastSummary.length === 0) return true;
+  // Get all messages for the chat
+  const messages = await db
+    .select()
+    .from(message)
+    .where(eq(message.chatId, chatId));
+
+  // Calculate total character count of messages
+  const totalChars = messages.reduce((sum, msg) => {
+    return sum + JSON.stringify(msg.parts).length;
+  }, 0);
+
+  // If no summary exists, only create one if we have enough characters
+  if (lastSummary.length === 0) {
+    return totalChars >= 50000;
+  }
 
   // Get messages since last summary
   const newMessages = await db
@@ -1550,12 +1565,12 @@ export async function shouldCreateNewSummary(chatId: string): Promise<boolean> {
     );
 
   // Calculate total character count of new messages
-  const totalChars = newMessages.reduce((sum, msg) => {
+  const newChars = newMessages.reduce((sum, msg) => {
     return sum + JSON.stringify(msg.parts).length;
   }, 0);
 
   // Create new summary when we have 5000+ new characters
-  return totalChars >= 5000;
+  return newChars >= 50000;
 }
 
 export async function getDocumentsByKind({
@@ -1626,6 +1641,79 @@ export async function getDocumentsByChatId({
     return Object.values(latestDocuments);
   } catch (error) {
     console.error('Failed to get documents by chat id from database');
+    throw error;
+  }
+}
+
+export async function saveChatSummary({
+  chatId,
+  summary,
+  lastMessageId,
+}: {
+  chatId: string;
+  summary: string;
+  lastMessageId: string;
+}) {
+  try {
+    return await db.insert(chatSummaries).values({
+      chatId,
+      summary,
+      lastMessageId,
+    });
+  } catch (error) {
+    console.error('Failed to save chat summary in database');
+    throw error;
+  }
+}
+
+export async function getLatestChatSummary({ chatId }: { chatId: string }) {
+  try {
+    const [summary] = await db
+      .select()
+      .from(chatSummaries)
+      .where(eq(chatSummaries.chatId, chatId))
+      .orderBy(desc(chatSummaries.createdAt))
+      .limit(1);
+    return summary;
+  } catch (error) {
+    console.error('Failed to get latest chat summary from database');
+    throw error;
+  }
+}
+
+export async function deleteUserOAuthCredentialsByProvider({
+  userId,
+  providerName,
+}: {
+  userId: string;
+  providerName: string;
+}) {
+  try {
+    return await db
+      .delete(userOAuthCredentials)
+      .where(
+        and(
+          eq(userOAuthCredentials.userId, userId),
+          eq(userOAuthCredentials.providerName, providerName)
+        )
+      );
+  } catch (error) {
+    console.error('Failed to delete OAuth credentials by provider from database');
+    throw error;
+  }
+}
+
+export async function getExternalPartyByPhone({ phone }: { phone: string }) {
+  try {
+    const result = await db
+      .select()
+      .from(externalParty)
+      .where(eq(externalParty.phone, phone))
+      .limit(1);
+    
+    return result[0];
+  } catch (error) {
+    console.error('Failed to get external party by phone from database');
     throw error;
   }
 }

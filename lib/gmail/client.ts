@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import { updateUserOAuthCredentials } from '@/lib/db/queries';
+import { updateUserOAuthCredentials, deleteUserOAuthCredentialsByProvider } from '@/lib/db/queries';
 
 interface GmailCredentials {
   accessToken: string;
@@ -67,9 +67,20 @@ export class GmailClient {
           refresh_token: credentials.refresh_token || this.credentials.refreshToken,
           expiry_date: credentials.expiry_date
         });
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error refreshing access token:', error);
-        throw new Error('Failed to refresh access token');
+        
+        // Handle specific error cases
+        if (error.message?.includes('invalid_grant')) {
+          // Delete the OAuth credentials since they are no longer valid
+          await deleteUserOAuthCredentialsByProvider({
+            userId: this.userId,
+            providerName: 'gmail'
+          });
+          throw new Error('Gmail access has been revoked or expired. Please reconnect your Gmail account.');
+        }
+        
+        throw new Error(`Failed to refresh access token: ${error.message || 'Unknown error'}`);
       }
     }
   }

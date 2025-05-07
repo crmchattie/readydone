@@ -21,7 +21,6 @@ export const user = pgTable('User', {
   firstName: varchar('firstName', { length: 64 }),
   lastName: varchar('lastName', { length: 64 }),
   usageType: varchar('usageType', { enum: ['personal', 'business', 'both'] }),
-  gmailConnected: boolean('gmailConnected').notNull().default(false),
   referralSource: text('referralSource'),
   onboardingCompletedAt: timestamp('onboardingCompletedAt'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
@@ -122,12 +121,13 @@ export const vote = pgTable(
 export type Vote = InferSelectModel<typeof vote>;
 
 export const document = pgTable('Document', {
-  id: uuid('id').notNull().defaultRandom(),
-  createdAt: timestamp('createdAt').notNull().defaultNow(),
-  title: text('title').notNull(),
+  id: uuid('id').notNull(),
+  title: varchar('title').notNull(),
+  kind: varchar('kind', { enum: ['text', 'code', 'sheet', 'image'] }).notNull(),
   content: text('content').notNull(),
-  kind: varchar('kind', { enum: ['text', 'code', 'image', 'sheet'] }).notNull().default('text'),
-  chatId: uuid('chatId').references(() => chat.id, { onDelete: 'set null' }),
+  summary: text('summary'),
+  chatId: uuid('chatId').notNull().references(() => chat.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
 }, (table) => ({
   pk: primaryKey({ columns: [table.id, table.createdAt] }),
 }));

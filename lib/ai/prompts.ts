@@ -1,4 +1,5 @@
 import { ArtifactKind } from '@/components/artifact';
+import { getLatestChatSummary, getDocumentsByChatId } from '@/lib/db/queries';
 
 // Tool descriptions
 export const toolsPrompt = `
@@ -156,16 +157,44 @@ Do not update document right after creating it. Wait for user feedback or reques
 export const regularPrompt =
   'You are a friendly assistant! Keep your responses concise and helpful.';
 
-export const systemPrompt = ({
-  selectedChatModel,
-}: {
-  selectedChatModel: string;
-}) => {
-  if (selectedChatModel === 'chat-model-reasoning') {
-    return regularPrompt;
-  } else {
-    return `${regularPrompt}\n\n${artifactsPrompt}`;
+async function getCombinedContext({ chatId, userId }: { chatId: string; userId: string }) {
+  try {
+    const [summary, documents] = await Promise.all([
+      getLatestChatSummary({ chatId }),
+      getDocumentsByChatId({ chatId, userId })
+    ]);
+
+    let contextString = '';
+    
+    if (summary?.summary) {
+      contextString += `\nCurrent conversation summary:\n${summary.summary}\n`;
+    }
+    
+    if (documents.length > 0) {
+      contextString += '\nRelevant documents:\n';
+      documents.forEach(doc => {
+        contextString += `- ${doc.title} (${doc.kind}): ${doc.summary || 'No summary available.'}\n`;
+      });
+    }
+    
+    return contextString;
+  } catch (error) {
+    console.error('Failed to get combined context:', error);
+    return '';
   }
+}
+
+export const systemPrompt = async ({ selectedChatModel, chatId, userId }: { 
+  selectedChatModel: string;
+  chatId: string;
+  userId: string;
+}) => {
+  const context = await getCombinedContext({ chatId, userId });
+  
+  return `You are Claude, an AI assistant focused on helping users accomplish their tasks effectively.
+${context}
+When referring to documents or previous context, use it naturally in the conversation without explicitly mentioning where the information came from.
+Maintain a helpful and professional tone while leveraging the available context to provide more informed and relevant responses.`;
 };
 
 export const codePrompt = `
