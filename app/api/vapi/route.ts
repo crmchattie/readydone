@@ -18,7 +18,7 @@ function verifyWebhookSignature(payload: string, signature: string | null) {
 export async function POST(request: Request) {
   debug('Received webhook request');
   try {
-    const signature = request.headers.get('x-vapi-signature');
+    const signature = request.headers.get('X-VAPI-SECRET');
     const payload = await request.text();
     
     if (!verifyWebhookSignature(payload, signature)) {

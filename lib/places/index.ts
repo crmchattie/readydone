@@ -42,7 +42,7 @@ async function fetchPlaceDetails(placeId: string): Promise<any> {
 
   try {
     const detailsResponse = await axios.get(
-      `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=website,opening_hours&key=${GOOGLE_PLACES_API}`
+      `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=website,opening_hours,formatted_phone_number&key=${GOOGLE_PLACES_API}`
     );
 
     console.log('Place details response:', detailsResponse.data);
@@ -70,6 +70,7 @@ async function fetchPlaceDetails(placeId: string): Promise<any> {
 
     return {
       website,
+      phone_number: result.formatted_phone_number,
       opening_hours: result.opening_hours ? {
         open_now: result.opening_hours.open_now,
         periods: result.opening_hours.periods,
@@ -122,7 +123,7 @@ export async function searchPlaces(options: SearchPlacesOptions): Promise<Serper
 
       for (const place of operationalPlaces) {
         const details = await fetchPlaceDetails(place.place_id);
-        if (details && details.website) {
+        if (details && (details.website || details.phone_number)) {
           allPlaces.push({
             title: place.name,
             address: place.formatted_address,
@@ -131,7 +132,7 @@ export async function searchPlaces(options: SearchPlacesOptions): Promise<Serper
             rating: place.rating || 0,
             ratingCount: place.user_ratings_total || 0,
             category: place.types[0] || '',
-            phoneNumber: place.formatted_phone_number || '',
+            phoneNumber: details.phone_number || '',
             website: details.website,
             place_id: place.place_id,
             opening_hours: details.opening_hours

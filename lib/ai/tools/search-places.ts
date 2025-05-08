@@ -54,11 +54,13 @@ async function getPlaceDetails(place: SerperPlacesResponse['places'][0]) {
     debug('Place details retrieved', {
       hasOpeningHours: !!result.opening_hours,
       hasPriceLevel: !!result.price_level,
+      hasPhoneNumber: !!result.formatted_phone_number,
       reviewCount: result.reviews?.length || 0
     });
 
     return {
       ...place,
+      phoneNumber: result.formatted_phone_number || '',
       openingHours: result.opening_hours?.weekday_text || [],
       priceLevel: result.price_level,
       reviews: result.reviews?.map((review: any) => ({

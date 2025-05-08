@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import { findEmailsByDomain, extractDomain } from '@/lib/hunter/email';
+import { findEmailsByDomain, extractDomain, Department } from '@/lib/hunter/email';
 
 // Debug helper
 const debug = (message: string, data?: any) => {
@@ -11,7 +11,7 @@ export const findEmail = tool({
   description: 'Find email addresses associated with a website or domain using Hunter API',
   parameters: z.object({
     website: z.string().describe('The website URL or domain to find emails for'),
-    department: z.string().optional().describe('Target department (e.g., "sales") to find emails for'),
+    department: z.nativeEnum(Department).optional().describe('Target department to find emails for (e.g., "sales", "support", "executive")'),
   }),
   execute: async ({ website, department }) => {
     debug('Starting email search', { website, department });
@@ -30,11 +30,11 @@ export const findEmail = tool({
 
       if (emails.length === 0) {
         debug('No emails found');
-        return `No email addresses found for ${domain}.`;
+        return `No email addresses found for ${domain}${department ? ` in the ${department} department` : ''}.`;
       }
 
       debug('Formatting email results');
-      const result = `Found ${emails.length} email(s) for ${domain}:\n\n${emails
+      const result = `Found ${emails.length} email(s) for ${domain}${department ? ` in the ${department} department` : ''}:\n\n${emails
         .map((email, index) => `${index + 1}. ${email}`)
         .join('\n')}`;
       

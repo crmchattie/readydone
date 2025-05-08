@@ -11,6 +11,11 @@ import { Markdown } from './markdown';
 import { MessageActions } from './message-actions';
 import { PreviewAttachment } from './preview-attachment';
 import { Weather } from './weather';
+import { PhoneCall } from './phone-call';
+import { FindEmail } from './find-email';
+import { FindPhone } from './find-phone';
+import { PlanTask } from './plan-task';
+import { ScrapeWebsite } from './scrape-website';
 import equal from 'fast-deep-equal';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
@@ -19,6 +24,10 @@ import { MessageEditor } from './message-editor';
 import { DocumentPreview } from './document-preview';
 import { MessageReasoning } from './message-reasoning';
 import { UseChatHelpers } from '@ai-sdk/react';
+import { SearchPlaces } from './search-places';
+import { SearchWeb } from './search-web';
+import { SendEmail } from './send-email';
+import { UseBrowser } from './use-browser';
 
 const PurePreviewMessage = ({
   chatId,
@@ -162,6 +171,16 @@ const PurePreviewMessage = ({
                     >
                       {toolName === 'getWeather' ? (
                         <Weather />
+                      ) : toolName === 'callPhone' ? (
+                        <PhoneCall args={args} />
+                      ) : toolName === 'findEmail' ? (
+                        <FindEmail args={args} />
+                      ) : toolName === 'findPhone' ? (
+                        <FindPhone args={args} />
+                      ) : toolName === 'planTask' ? (
+                        <PlanTask args={args} />
+                      ) : toolName === 'scrapeWebsite' ? (
+                        <ScrapeWebsite args={args} />
                       ) : toolName === 'createDocument' ? (
                         <DocumentPreview isReadonly={isReadonly} args={args} />
                       ) : toolName === 'updateDocument' ? (
@@ -176,6 +195,14 @@ const PurePreviewMessage = ({
                           args={args}
                           isReadonly={isReadonly}
                         />
+                      ) : toolName === 'searchPlaces' ? (
+                        <SearchPlaces args={args} />
+                      ) : toolName === 'searchWeb' ? (
+                        <SearchWeb args={args} />
+                      ) : toolName === 'sendEmail' ? (
+                        <SendEmail args={args} />
+                      ) : toolName === 'useBrowser' ? (
+                        <UseBrowser args={args} />
                       ) : null}
                     </div>
                   );
@@ -188,6 +215,16 @@ const PurePreviewMessage = ({
                     <div key={toolCallId}>
                       {toolName === 'getWeather' ? (
                         <Weather weatherAtLocation={result} />
+                      ) : toolName === 'callPhone' ? (
+                        <PhoneCall result={result} />
+                      ) : toolName === 'findEmail' ? (
+                        <FindEmail result={result} />
+                      ) : toolName === 'findPhone' ? (
+                        <FindPhone result={result} />
+                      ) : toolName === 'planTask' ? (
+                        <PlanTask result={result} />
+                      ) : toolName === 'scrapeWebsite' ? (
+                        <ScrapeWebsite result={result} />
                       ) : toolName === 'createDocument' ? (
                         <DocumentPreview
                           isReadonly={isReadonly}
@@ -205,6 +242,14 @@ const PurePreviewMessage = ({
                           result={result}
                           isReadonly={isReadonly}
                         />
+                      ) : toolName === 'searchPlaces' ? (
+                        <SearchPlaces result={result} />
+                      ) : toolName === 'searchWeb' ? (
+                        <SearchWeb result={result} />
+                      ) : toolName === 'sendEmail' ? (
+                        <SendEmail result={result} />
+                      ) : toolName === 'useBrowser' ? (
+                        <UseBrowser result={result} />
                       ) : (
                         <Markdown>{result}</Markdown>
                       )}

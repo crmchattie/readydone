@@ -7,10 +7,27 @@ if (!HUNTER_API_KEY) {
   throw new Error('HUNTER_API_KEY environment variable is not set');
 }
 
+export enum Department {
+  EXECUTIVE = 'executive',
+  IT = 'it',
+  FINANCE = 'finance',
+  MANAGEMENT = 'management',
+  SALES = 'sales',
+  LEGAL = 'legal',
+  SUPPORT = 'support',
+  HR = 'hr',
+  MARKETING = 'marketing',
+  COMMUNICATION = 'communication',
+  EDUCATION = 'education',
+  DESIGN = 'design',
+  HEALTH = 'health',
+  OPERATIONS = 'operations'
+}
+
 interface EmailSearchOptions {
   domain: string;
   minConfidence?: number;
-  department?: string;
+  department?: Department;
 }
 
 /**
@@ -41,39 +58,25 @@ export async function findEmailsByDomain(options: EmailSearchOptions): Promise<s
       });
     }
     
-    // First try to find sales department emails
-    let salesEmails = data.data.emails
+    // Filter emails based on department if specified
+    const filteredEmails = data.data.emails
       .filter(email => 
-        email.department === 'sales' && 
+        (!department || email.department === department) && 
         email.confidence >= minConfidence
       )
       .sort((a, b) => b.confidence - a.confidence)
       .map(email => email.value);
 
-    if (salesEmails.length > 0) {
-      console.log('Hunter API: Found sales department emails:');
-      salesEmails.forEach((email, index) => {
+    if (filteredEmails.length > 0) {
+      console.log(`Hunter API: Found ${filteredEmails.length} email(s) matching criteria:`);
+      filteredEmails.forEach((email, index) => {
         console.log(`  ${index + 1}. ${email}`);
       });
-      return salesEmails;
-    }
-
-    console.log('Hunter API: No sales department emails found, falling back to highest confidence emails');
-    
-    // If no sales emails found, return highest confidence emails
-    const highConfidenceEmails = data.data.emails
-      .filter(email => email.confidence >= minConfidence)
-      .sort((a, b) => b.confidence - a.confidence)
-      .map(email => email.value);
-    
-    if (highConfidenceEmails.length > 0) {
-      console.log('Hunter API: Final sorted emails by confidence:');
-      highConfidenceEmails.forEach((email, index) => {
-        console.log(`  ${index + 1}. ${email}`);
-      });
+    } else {
+      console.log('Hunter API: No emails found matching the specified criteria');
     }
     
-    return highConfidenceEmails;
+    return filteredEmails;
   } catch (error) {
     if (isAxiosError(error)) {
       console.error('Hunter API Error:', {
@@ -95,7 +98,12 @@ export async function findEmailsByDomain(options: EmailSearchOptions): Promise<s
 export function extractDomain(url: string): string {
   console.log(`Hunter API: Extracting domain from URL "${url}"`);
   try {
-    const domain = new URL(url).hostname;
+    // If the input doesn't start with http:// or https://, add https://
+    const urlWithProtocol = url.startsWith('http://') || url.startsWith('https://') 
+      ? url 
+      : `https://${url}`;
+    
+    const domain = new URL(urlWithProtocol).hostname;
     const cleanDomain = domain.startsWith('www.') ? domain.slice(4) : domain;
     console.log(`Hunter API: Extracted domain "${cleanDomain}"`);
     return cleanDomain;

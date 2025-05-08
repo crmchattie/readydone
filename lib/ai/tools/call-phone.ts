@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { myProvider } from '@/lib/ai/providers';
 import { getContextForInteraction, type ConversationContext } from '@/lib/ai/context';
 import { startCall, getCall } from '../../vapi';
-import { saveThread, saveThreadMessages, getExternalPartyByPhone, saveExternalParty } from '@/lib/db/queries';
+import { saveThread, saveThreadMessages, getExternalPartyByPhone, saveExternalParty, updateThreadStatus } from '@/lib/db/queries';
 import { generateUUID } from '@/lib/utils';
 
 // Debug helper
@@ -179,12 +179,8 @@ export const callPhone = ({ chatId, messages }: CallPhoneProps) =>
       debug('Vapi call initiated', { callId: call.id });
 
       // Update thread with call ID
-      await saveThread({
-        id: threadId,
-        chatId,
-        externalPartyId: externalParty.id,
-        name: `Call to ${phoneNumber}`,
-        externalSystemId: call.id,
+      await updateThreadStatus({
+        threadId,
         status: 'awaiting_reply',
         lastMessagePreview: firstMessage
       });

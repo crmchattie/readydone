@@ -91,6 +91,8 @@ export class FirecrawlClient {
         scrapeOptions,
       });
 
+      console.log(searchResult)
+
       return searchResult.data
         .map((doc) => ({
           title: doc.title || '',
@@ -108,7 +110,7 @@ export class FirecrawlClient {
 
   async scrape({
     url,
-    formats = ['markdown', 'html'],
+    formats = ['markdown'],
     jsonOptions,
     location,
     actions,
@@ -121,14 +123,24 @@ export class FirecrawlClient {
         actions,
       });
 
-      if ('error' in scrapeResult) {
-        throw new Error(scrapeResult.error);
+      // Only throw if there's an actual error
+      if (!scrapeResult.success) {
+        throw new Error(`Failed to scrape: ${scrapeResult.error}`)
       }
 
-      return scrapeResult as ScrapeResult;
+      // If we have markdown or other content, consider it a success
+      if ('markdown' in scrapeResult || 'html' in scrapeResult || 'rawHtml' in scrapeResult) {
+        return scrapeResult as ScrapeResult;
+      }
+
+      // If we get here, we didn't get any content
+      throw new Error('No content returned from scrape');
     } catch (error) {
       console.error('Firecrawl scrape error:', error);
-      throw new Error('Failed to scrape URL');
+      if (error instanceof Error) {
+        throw new Error(`Failed to scrape URL: ${error.message}`);
+      }
+      throw new Error('Failed to scrape URL: Unknown error');
     }
   }
 }

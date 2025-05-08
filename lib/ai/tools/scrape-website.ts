@@ -22,24 +22,27 @@ export const scrapeWebsite = tool({
       debug('Executing scrape request');
       const result = await client.scrape({
         url,
-        formats: ['markdown', 'html'],
+        formats: ['markdown'],
       });
       debug('Scrape completed', { 
         hasMarkdown: !!result.markdown,
-        hasHtml: !!result.html,
         hasMetadata: !!result.metadata
       });
+
+      if (!result.markdown) {
+        debug('Warning: No markdown content returned');
+      }
 
       debug('Scrape successful');
       return {
         markdown: result.markdown,
-        html: result.html,
         metadata: result.metadata,
       };
     } catch (error) {
-      debug('Website scrape failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      debug('Website scrape failed', { error: errorMessage });
       console.error('Failed to scrape website:', error);
-      throw error;
+      throw new Error(`Failed to scrape website: ${errorMessage}`);
     }
   },
 }); 

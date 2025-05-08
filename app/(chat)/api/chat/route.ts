@@ -28,7 +28,7 @@ import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import { searchWeb } from '@/lib/ai/tools/search-web';
-import { searchPlacesTool } from '@/lib/ai/tools/search-places';
+import { getSpecificPlaceTool, searchPlacesTool } from '@/lib/ai/tools/search-places';
 import { scrapeWebsite } from '@/lib/ai/tools/scrape-website';
 import { planTask } from '@/lib/ai/tools/plan-task';
 import { findEmail } from '@/lib/ai/tools/find-email';
@@ -138,6 +138,7 @@ export async function POST(request: Request) {
                   'updateDocument',
                   'requestSuggestions',
                   'searchWeb',
+                  'getSpecificPlace',
                   'searchPlaces',
                   'scrapeWebsite',
                   'findEmail',
@@ -158,6 +159,7 @@ export async function POST(request: Request) {
               dataStream,
             }),
             searchWeb: searchWeb,
+            getSpecificPlace: getSpecificPlaceTool,
             searchPlaces: searchPlacesTool,
             scrapeWebsite: scrapeWebsite,
             findEmail: findEmail,
