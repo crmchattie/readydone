@@ -35,8 +35,6 @@ import {
   type UserOAuthCredentials,
   chatParticipant,
   type ChatParticipant,
-  documentAccess,
-  type DocumentAccess,
   gmailWatches,
   type GmailWatches,
   externalParty,
@@ -321,14 +319,6 @@ export async function saveDocument({
       })
       .returning();
 
-    // Add the creator as an owner
-    await addDocumentAccess({
-      documentId: doc[0].id,
-      documentCreatedAt: doc[0].createdAt,
-      userId,
-      role: 'owner',
-    });
-
     return doc;
   } catch (error) {
     console.error('Failed to save document in database');
@@ -403,32 +393,6 @@ export async function saveSuggestions({
   userId: string;
 }) {
   try {
-    // Verify user has access to the documents
-    const documentIds = [...new Set(suggestions.map(s => s.documentId))];
-    const documentCreatedAts = [...new Set(suggestions.map(s => s.documentCreatedAt))];
-    
-    const access = await Promise.all(
-      documentIds.map((docId, index) =>
-        db
-          .select()
-          .from(documentAccess)
-          .where(
-            and(
-              eq(documentAccess.documentId, docId),
-              eq(documentAccess.documentCreatedAt, documentCreatedAts[index]),
-              eq(documentAccess.userId, userId),
-              inArray(documentAccess.role, ['owner', 'editor']),
-            ),
-          )
-          .limit(1),
-      ),
-    );
-
-    // Check if user has access to all documents
-    if (access.some(result => result.length === 0)) {
-      throw new Error('User does not have permission to create suggestions for some documents');
-    }
-
     // Save suggestions
     return await db.insert(suggestion).values(
       suggestions.map(s => ({
@@ -454,23 +418,6 @@ export async function getSuggestionsByDocumentId({
   userId: string;
 }) {
   try {
-    // Check if user has access to the document
-    const [access] = await db
-      .select()
-      .from(documentAccess)
-      .where(
-        and(
-          eq(documentAccess.documentId, documentId),
-          eq(documentAccess.documentCreatedAt, documentCreatedAt),
-          eq(documentAccess.userId, userId),
-        ),
-      )
-      .limit(1);
-
-    if (!access) {
-      throw new Error('User does not have permission to view suggestions for this document');
-    }
-
     return await db
       .select()
       .from(suggestion)
@@ -835,114 +782,6 @@ export async function removeChatParticipant({
       );
   } catch (error) {
     console.error('Failed to remove chat participant from database');
-    throw error;
-  }
-}
-
-// New functions for document access
-export async function addDocumentAccess({
-  documentId,
-  documentCreatedAt,
-  userId,
-  role = 'viewer',
-}: {
-  documentId: string;
-  documentCreatedAt: Date;
-  userId: string;
-  role?: 'owner' | 'editor' | 'viewer';
-}) {
-  try {
-    return await db.insert(documentAccess).values({
-      documentId,
-      documentCreatedAt,
-      userId,
-      role,
-      createdAt: new Date(),
-    });
-  } catch (error) {
-    console.error('Failed to add document access to database');
-    throw error;
-  }
-}
-
-export async function getDocumentAccess({
-  documentId,
-  documentCreatedAt,
-}: {
-  documentId: string;
-  documentCreatedAt: Date;
-}) {
-  try {
-    return await db
-      .select({
-        user: user,
-        role: documentAccess.role,
-        grantedAt: documentAccess.createdAt,
-      })
-      .from(documentAccess)
-      .innerJoin(user, eq(documentAccess.userId, user.id))
-      .where(
-        and(
-          eq(documentAccess.documentId, documentId),
-          eq(documentAccess.documentCreatedAt, documentCreatedAt),
-        ),
-      )
-      .orderBy(asc(documentAccess.createdAt));
-  } catch (error) {
-    console.error('Failed to get document access from database');
-    throw error;
-  }
-}
-
-export async function updateDocumentAccessRole({
-  documentId,
-  documentCreatedAt,
-  userId,
-  role,
-}: {
-  documentId: string;
-  documentCreatedAt: Date;
-  userId: string;
-  role: 'owner' | 'editor' | 'viewer';
-}) {
-  try {
-    return await db
-      .update(documentAccess)
-      .set({ role })
-      .where(
-        and(
-          eq(documentAccess.documentId, documentId),
-          eq(documentAccess.documentCreatedAt, documentCreatedAt),
-          eq(documentAccess.userId, userId),
-        ),
-      );
-  } catch (error) {
-    console.error('Failed to update document access role in database');
-    throw error;
-  }
-}
-
-export async function removeDocumentAccess({
-  documentId,
-  documentCreatedAt,
-  userId,
-}: {
-  documentId: string;
-  documentCreatedAt: Date;
-  userId: string;
-}) {
-  try {
-    return await db
-      .delete(documentAccess)
-      .where(
-        and(
-          eq(documentAccess.documentId, documentId),
-          eq(documentAccess.documentCreatedAt, documentCreatedAt),
-          eq(documentAccess.userId, userId),
-        ),
-      );
-  } catch (error) {
-    console.error('Failed to remove document access from database');
     throw error;
   }
 }
@@ -1590,14 +1429,6 @@ export async function getDocumentsByKind({
       createdAt: document.createdAt,
     })
     .from(document)
-    .innerJoin(
-      documentAccess,
-      and(
-        eq(documentAccess.documentId, document.id),
-        eq(documentAccess.documentCreatedAt, document.createdAt),
-        eq(documentAccess.userId, userId)
-      )
-    )
     .where(eq(document.kind, kind))
     .orderBy(desc(document.createdAt));
 
@@ -1612,26 +1443,15 @@ export async function getDocumentsByChatId({
   userId: string;
 }) {
   try {
-    // Get all documents associated with the chat where the user has access
+    // Get all documents associated with the chat
     const documents = await db
-      .select({
-        document: document,
-        access: documentAccess,
-      })
+      .select()
       .from(document)
-      .innerJoin(
-        documentAccess,
-        and(
-          eq(documentAccess.documentId, document.id),
-          eq(documentAccess.documentCreatedAt, document.createdAt),
-          eq(documentAccess.userId, userId)
-        )
-      )
       .where(eq(document.chatId, chatId))
       .orderBy(desc(document.createdAt));
 
     // Group documents by ID and only return the latest version
-    const latestDocuments = documents.reduce((acc, { document: doc }) => {
+    const latestDocuments = documents.reduce((acc, doc) => {
       if (!acc[doc.id] || doc.createdAt > acc[doc.id].createdAt) {
         acc[doc.id] = doc;
       }

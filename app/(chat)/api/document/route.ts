@@ -4,7 +4,6 @@ import {
   deleteDocumentsByIdAfterTimestamp,
   getDocumentsById,
   saveDocument,
-  getDocumentAccess,
   getDocumentsByKind,
   saveChat,
   getChatById,
@@ -29,18 +28,6 @@ export async function GET(request: Request) {
 
       if (!document) {
         return new Response('Not found', { status: 404 });
-      }
-
-      // Check if user has access to the document
-      const access = await getDocumentAccess({ 
-        documentId: document.id, 
-        documentCreatedAt: document.createdAt 
-      });
-      
-      const userAccess = access.find(a => a.user.id === session.user?.id);
-
-      if (!userAccess) {
-        return new Response('Forbidden', { status: 403 });
       }
 
       return Response.json(documents, { status: 200 });
@@ -138,21 +125,6 @@ export async function DELETE(request: Request) {
 
   if (!document) {
     return new Response('Not found', { status: 404 });
-  }
-
-  // Check if user has owner access to the document
-  const access = await getDocumentAccess({ 
-    documentId: document.id, 
-    documentCreatedAt: document.createdAt 
-  });
-  
-  const userAccess = access.find(a => 
-    a.user.id === session.user?.id && 
-    a.role === 'owner'
-  );
-
-  if (!userAccess) {
-    return new Response('Forbidden', { status: 403 });
   }
 
   const documentsDeleted = await deleteDocumentsByIdAfterTimestamp({

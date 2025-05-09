@@ -134,22 +134,6 @@ export const document = pgTable('Document', {
 
 export type Document = InferSelectModel<typeof document>;
 
-export const documentAccess = pgTable('DocumentAccess', {
-  documentId: uuid('documentId').notNull(),
-  documentCreatedAt: timestamp('documentCreatedAt').notNull(),
-  userId: uuid('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
-  role: varchar('role', { enum: ['owner', 'editor', 'viewer'] }).notNull().default('viewer'),
-  createdAt: timestamp('createdAt').notNull().defaultNow(),
-}, (table) => ({
-  pk: primaryKey({ columns: [table.documentId, table.documentCreatedAt, table.userId] }),
-  documentFk: foreignKey({
-    columns: [table.documentId, table.documentCreatedAt],
-    foreignColumns: [document.id, document.createdAt],
-  }).onDelete('cascade'),
-}));
-
-export type DocumentAccess = InferSelectModel<typeof documentAccess>;
-
 export const suggestion = pgTable(
   'Suggestion',
   {
