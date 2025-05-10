@@ -12,6 +12,64 @@ export interface Business {
   updatedAt: Date | null;
 }
 
+// Browser automation types
+export type BrowserbaseRegion = "us-east-1" | "us-west-2" | "eu-central-1" | "ap-southeast-1";
+
+export interface BrowserSession {
+  sessionId: string | null;
+  sessionUrl: string | null;
+  contextId: string | null;
+}
+
+export interface BrowserStep {
+  text: string;
+  reasoning: string;
+  tool: "GOTO" | "ACT" | "EXTRACT" | "OBSERVE" | "CLOSE" | "WAIT" | "NAVBACK";
+  instruction: string;
+  stepNumber?: number;
+  status?: 'running' | 'completed' | 'failed';
+  error?: Error;
+}
+
+export interface BrowserState {
+  sessionId: string | undefined;
+  sessionUrl: string | undefined;
+  contextId: string | undefined;
+  currentStep: number;
+  steps: BrowserStep[];
+  extractedData: any;
+  error: Error | undefined;
+}
+
+export interface BrowserResult {
+  state: "result";
+  sessionId?: string;
+  sessionUrl?: string;
+  contextId?: string;
+  steps: BrowserStep[];
+  currentStep: number;
+  error?: Error;
+  extractedData: any;
+}
+
+export interface BrowserAction {
+  action: string;
+  reason: string;
+  status?: 'failed';
+  timestamp: string;
+}
+
+export interface UseBrowserProps {
+  args?: {
+    url: string;
+    task: string;
+    variables?: Record<string, string>;
+    extractionSchema?: Record<string, any>;
+    maxAttempts?: number;
+  };
+  result?: BrowserResult;
+  isReadonly?: boolean;
+}
 
 export interface HunterResponse {
   data: {
@@ -195,4 +253,16 @@ export interface Place {
 
 export interface SerperPlacesResponse {
   places: Place[];
+}
+
+export interface ToolResult<T = string, A = any, R = any> {
+  state: "result";
+  step?: number;
+  sessionId?: string;
+  sessionUrl?: string;
+  contextId?: string;
+  task?: string;
+  steps?: BrowserStep[];
+  extractedData?: any;
+  error?: Error;
 } 

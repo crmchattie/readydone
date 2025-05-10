@@ -155,6 +155,9 @@ dependencies:
   googleapis:
     specifier: ^148.0.0
     version: 148.0.0
+  jotai:
+    specifier: ^2.12.4
+    version: 2.12.4(@types/react@18.3.20)(react@19.0.0-rc-45804af1-20241021)
   lucide-react:
     specifier: ^0.446.0
     version: 0.446.0(react@19.0.0-rc-45804af1-20241021)
@@ -182,6 +185,12 @@ dependencies:
   papaparse:
     specifier: ^5.5.2
     version: 5.5.2
+  playwright:
+    specifier: ^1.50.0
+    version: 1.52.0
+  playwright-core:
+    specifier: ^1.50.0
+    version: 1.52.0
   postgres:
     specifier: ^3.4.4
     version: 3.4.5
@@ -265,9 +274,6 @@ devDependencies:
   '@biomejs/biome':
     specifier: 1.9.4
     version: 1.9.4
-  '@playwright/test':
-    specifier: ^1.50.1
-    version: 1.52.0
   '@tailwindcss/typography':
     specifier: ^0.5.15
     version: 0.5.16(tailwindcss@3.4.17)
@@ -2216,6 +2222,7 @@ packages:
     hasBin: true
     dependencies:
       playwright: 1.52.0
+    dev: false
 
   /@protobufjs/aspromise@1.1.2:
     resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
@@ -5247,6 +5254,7 @@ packages:
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
     requiresBuild: true
+    dev: false
     optional: true
 
   /fsevents@2.3.3:
@@ -5978,6 +5986,22 @@ packages:
 
   /jose@5.10.0:
     resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
+    dev: false
+
+  /jotai@2.12.4(@types/react@18.3.20)(react@19.0.0-rc-45804af1-20241021):
+    resolution: {integrity: sha512-eFXLJol4oOLM8BS1+QV+XwaYQITG8n1tatBCFl4F5HE3zR5j2WIK8QpMt7VJIYmlogNUZfvB7wjwLoVk+umB9Q==}
+    engines: {node: '>=12.20.0'}
+    peerDependencies:
+      '@types/react': '>=17.0.0'
+      react: '>=17.0.0'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      react:
+        optional: true
+    dependencies:
+      '@types/react': 18.3.20
+      react: 19.0.0-rc-45804af1-20241021
     dev: false
 
   /joycon@3.1.1:
@@ -7185,6 +7209,7 @@ packages:
     resolution: {integrity: sha512-l2osTgLXSMeuLZOML9qYODUQoPPnUsKsb5/P6LJ2e6uPKXUdPK5WYhN4z03G+YNbWmGDY4YENauNu4ZKczreHg==}
     engines: {node: '>=18'}
     hasBin: true
+    dev: false
 
   /playwright@1.52.0:
     resolution: {integrity: sha512-JAwMNMBlxJ2oD1kce4KPtMkDeKGHQstdpFPcPH3maElAXon/QZeTvtsfXmTMRyO9TslfoYOXkSsvao2nE1ilTw==}
@@ -7194,6 +7219,7 @@ packages:
       playwright-core: 1.52.0
     optionalDependencies:
       fsevents: 2.3.2
+    dev: false
 
   /possible-typed-array-names@1.1.0:
     resolution: {integrity: sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg==}

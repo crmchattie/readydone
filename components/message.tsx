@@ -28,6 +28,7 @@ import { SearchPlaces } from './search-places';
 import { SearchWeb } from './search-web';
 import { SendEmail } from './send-email';
 import { UseBrowser } from './use-browser';
+import { BrowserPreview } from "./browser-preview";
 
 const PurePreviewMessage = ({
   chatId,
@@ -202,7 +203,7 @@ const PurePreviewMessage = ({
                       ) : toolName === 'sendEmail' ? (
                         <SendEmail args={args} />
                       ) : toolName === 'useBrowser' ? (
-                        <UseBrowser args={args} />
+                        <BrowserPreview args={args} isReadonly={isReadonly} />
                       ) : null}
                     </div>
                   );

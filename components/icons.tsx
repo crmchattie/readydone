@@ -1257,3 +1257,37 @@ export const SendIcon = ({ size = 16 }: { size?: number }) => (
     />
   </svg>
 );
+
+export const PauseIcon = ({ size = 16 }: { size?: number }) => (
+  <svg
+    height={size}
+    strokeLinejoin="round"
+    viewBox="0 0 16 16"
+    width={size}
+    style={{ color: 'currentcolor' }}
+  >
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M6 2H4V14H6V2ZM12 2H10V14H12V2Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+export const RefreshIcon = ({ size = 16 }: { size?: number }) => (
+  <svg
+    height={size}
+    strokeLinejoin="round"
+    viewBox="0 0 16 16"
+    width={size}
+    style={{ color: 'currentcolor' }}
+  >
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M13.5 2.5C12.1193 1.11929 10.2614 0.25 8.25 0.25C4.52208 0.25 1.5 3.27208 1.5 7C1.5 10.7279 4.52208 13.75 8.25 13.75C11.9779 13.75 15 10.7279 15 7H13.5C13.5 9.76142 11.2614 12 8.5 12C5.73858 12 3.5 9.76142 3.5 7C3.5 4.23858 5.73858 2 8.5 2C9.94036 2 11.25 2.61929 12.25 3.61929L9.5 6.36929V2.5H13.5V2.5Z"
+      fill="currentColor"
+    />
+  </svg>
+);

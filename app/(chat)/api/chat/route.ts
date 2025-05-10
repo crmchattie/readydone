@@ -35,6 +35,7 @@ import { findEmail } from '@/lib/ai/tools/find-email';
 import { sendEmail } from '@/lib/ai/tools/send-email';
 import { findPhone } from '@/lib/ai/tools/find-phone';
 import { callPhone } from '@/lib/ai/tools/call-phone';
+import { runBrowser } from '@/lib/ai/tools/run-browser';
 import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
 
@@ -144,7 +145,8 @@ export async function POST(request: Request) {
                   'findEmail',
                   'sendEmail',
                   'findPhone',
-                  'callPhone'
+                  'callPhone',
+                  'useBrowser'
                 ],
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_generateMessageId: generateUUID,
@@ -165,7 +167,8 @@ export async function POST(request: Request) {
             findEmail: findEmail,
             sendEmail: sendEmail({ chatId: id, messages, userId: session.user!.id! }),
             findPhone: findPhone,
-            callPhone: callPhone({ chatId: id, messages})
+            callPhone: callPhone({ chatId: id, messages}),
+            useBrowser: runBrowser({ session, dataStream, chatId: id })
           },
           onFinish: async ({ response }) => {
             debug('Stream finished, processing response');
