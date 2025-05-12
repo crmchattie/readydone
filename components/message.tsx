@@ -27,8 +27,7 @@ import { UseChatHelpers } from '@ai-sdk/react';
 import { SearchPlaces } from './search-places';
 import { SearchWeb } from './search-web';
 import { SendEmail } from './send-email';
-import { UseBrowser } from './use-browser';
-import { BrowserPreview } from "./browser-preview";
+import { BrowserToolComponent } from "./browser-preview";
 
 const PurePreviewMessage = ({
   chatId,
@@ -203,7 +202,10 @@ const PurePreviewMessage = ({
                       ) : toolName === 'sendEmail' ? (
                         <SendEmail args={args} />
                       ) : toolName === 'useBrowser' ? (
-                        <BrowserPreview args={args} isReadonly={isReadonly} />
+                        <BrowserToolComponent 
+                          toolInvocation={toolInvocation}
+                          isReadonly={isReadonly}
+                        />
                       ) : null}
                     </div>
                   );
@@ -250,7 +252,10 @@ const PurePreviewMessage = ({
                       ) : toolName === 'sendEmail' ? (
                         <SendEmail result={result} />
                       ) : toolName === 'useBrowser' ? (
-                        <UseBrowser result={result} />
+                        <BrowserToolComponent 
+                          toolInvocation={toolInvocation}
+                          isReadonly={isReadonly}
+                        />
                       ) : (
                         <Markdown>{result}</Markdown>
                       )}

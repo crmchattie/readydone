@@ -10,13 +10,13 @@ interface BrowserResponse<T> {
 }
 
 // Client-side API functions that wrap server endpoints
-export async function createBrowserSession(timezone?: string, contextId?: string) {
+export async function createBrowserSession(timezone?: string, contextId?: string, options?: { keepAlive?: boolean }) {
   const response = await fetch('/api/browser/session', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ timezone, contextId }),
+    body: JSON.stringify({ timezone, contextId, keepAlive: options?.keepAlive }),
   });
   
   const data: BrowserResponse<{

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAtom } from "jotai";
 import { browserStateAtom } from "../lib/browserbase/store";
 import { 
@@ -11,16 +11,67 @@ import {
 } from "../lib/browserbase/client";
 import { BrowserStep } from "@/lib/db/types";
 
+// Debug helper
+const debug = (message: string, data?: any) => {
+  console.debug(`[use-browser] ${message}`, data ? data : '');
+};
+
 export function useBrowser() {
   const [state, setState] = useAtom(browserStateAtom);
+  const [isClosing, setIsClosing] = useState(false);
+
+  const handleError = async (error: Error) => {
+    debug('Handling error', error);
+    if (state.sessionId && !isClosing) {
+      try {
+        setIsClosing(true);
+        // Try to close the agent first
+        await fetch('/api/browser/agent', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            action: 'CLOSE'
+          })
+        });
+        // Then end the session
+        await endBrowserSession(state.sessionId);
+        debug('Session cleaned up after error');
+      } catch (cleanupError) {
+        debug('Error cleaning up session after failure', cleanupError);
+      } finally {
+        setIsClosing(false);
+        setState(prev => ({
+          ...prev,
+          sessionId: undefined,
+          sessionUrl: undefined,
+          contextId: undefined,
+          error: error,
+          steps: prev.steps.map(s =>
+            s.status === 'running'
+              ? { ...s, status: 'failed', error }
+              : s
+          )
+        }));
+      }
+    }
+  };
 
   const execute = useCallback(async (task: string) => {
+    debug('Executing task', { task });
     try {
       // Only create a new session if we don't have one
       if (!state.sessionId) {
+        debug('Creating new browser session');
         const { sessionId, sessionUrl, contextId } = await createBrowserSession(
-          Intl.DateTimeFormat().resolvedOptions().timeZone
+          Intl.DateTimeFormat().resolvedOptions().timeZone,
+          undefined,
+          { keepAlive: true }
         );
+        debug('Browser session created', { sessionId, sessionUrl, contextId });
+
         setState(prev => ({
           ...prev,
           sessionId,
@@ -31,133 +82,179 @@ export function useBrowser() {
           extractedData: null,
           error: undefined
         }));
-      }
 
-      // Start the agent with current session
-      const { result: firstStep } = await getNextStep(state.sessionId!, task, []);
+        // Start the agent with current session
+        debug('Starting browser agent', { sessionId });
+        const response = await fetch('/api/browser/agent', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sessionId,
+            goal: task,
+            action: 'START'
+          })
+        });
 
-      // Add first step
-      const step: BrowserStep = {
-        ...firstStep,
-        stepNumber: 1,
-        status: 'running'
-      };
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to start browser task');
+        }
 
-      setState(prev => ({
-        ...prev,
-        steps: [...prev.steps, step],
-        currentStep: prev.currentStep + 1
-      }));
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to start browser task');
+        }
 
-      // Execute first step
-      const { success, error, extraction } = await executeBrowserStep(
-        state.sessionId!,
-        step
-      );
+        debug('First step received', data);
 
-      if (!success) {
-        throw error || new Error("Failed to execute first step");
-      }
-
-      if (extraction) {
-        setState(prev => ({
-          ...prev,
-          extractedData: extraction,
-          steps: prev.steps.map(s => 
-            s.stepNumber === step.stepNumber 
-              ? { ...s, status: 'completed' }
-              : s
-          )
-        }));
-      }
-
-      // Continue with subsequent steps
-      while (true) {
-        // Get next step
-        const { result: nextStep } = await getNextStep(
-          state.sessionId!,
-          task,
-          state.steps
-        );
-
-        // Add the next step
+        // Add first step
         const step: BrowserStep = {
-          ...nextStep,
-          stepNumber: state.steps.length + 1,
+          ...data.result,
+          stepNumber: 1,
           status: 'running'
         };
 
         setState(prev => ({
           ...prev,
-          steps: [...prev.steps, step],
-          currentStep: prev.currentStep + 1
+          steps: [step],
+          currentStep: 1
         }));
 
-        // Break if we're done
-        if (nextStep.tool === "CLOSE") {
-          break;
-        }
-
-        // Execute the step
-        const { success, error, extraction } = await executeBrowserStep(
-          state.sessionId!,
-          step
-        );
-
-        if (!success) {
-          throw error || new Error("Failed to execute step");
-        }
-
-        if (extraction) {
+        if (data.extraction) {
+          debug('Extraction data received', data.extraction);
           setState(prev => ({
             ...prev,
-            extractedData: extraction,
-            steps: prev.steps.map(s => 
-              s.stepNumber === step.stepNumber 
+            extractedData: data.extraction,
+            steps: prev.steps.map(s =>
+              s.stepNumber === step.stepNumber
                 ? { ...s, status: 'completed' }
                 : s
             )
           }));
         }
+
+        // Continue with subsequent steps if not done
+        if (!data.done) {
+          debug('Continuing with subsequent steps');
+          while (true) {
+            // Get next step
+            debug('Getting next step');
+            const { result: nextStep, done } = await getNextStep(
+              sessionId,
+              task,
+              state.steps
+            );
+            debug('Next step received', { nextStep, done });
+
+            // Add the step
+            const step: BrowserStep = {
+              ...nextStep,
+              stepNumber: state.steps.length + 1,
+              status: 'running'
+            };
+
+            setState(prev => ({
+              ...prev,
+              steps: [...prev.steps, step],
+              currentStep: prev.currentStep + 1
+            }));
+
+            // Execute the step
+            debug('Executing step', step);
+            const { success, error, extraction } = await executeBrowserStep(
+              sessionId,
+              step
+            );
+            debug('Step execution result', { success, error, extraction });
+
+            if (!success) {
+              throw error || new Error("Failed to execute step");
+            }
+
+            if (extraction) {
+              debug('Extraction data received', extraction);
+              setState(prev => ({
+                ...prev,
+                extractedData: extraction,
+                steps: prev.steps.map(s =>
+                  s.stepNumber === step.stepNumber
+                    ? { ...s, status: 'completed' }
+                    : s
+                )
+              }));
+            }
+
+            if (done) {
+              debug('Browser task completed');
+              break;
+            }
+          }
+        }
       }
     } catch (error) {
-      setState(prev => ({ 
-        ...prev, 
-        error: error as Error,
-        steps: prev.steps.map(s => 
-          s.status === 'running' 
-            ? { ...s, status: 'failed', error: error as Error }
-            : s
-        )
-      }));
+      debug('Error executing browser task', error);
+      await handleError(error as Error);
     }
   }, [state.sessionId, state.steps, setState]);
 
   const close = useCallback(async () => {
-    if (state.sessionId) {
-      try {
-        await endBrowserSession(state.sessionId);
-        setState(prev => ({
-          ...prev,
-          sessionId: undefined,
-          sessionUrl: undefined,
-          contextId: undefined,
-          steps: [],
-          currentStep: 0,
-          extractedData: null,
-          error: undefined
-        }));
-      } catch (error) {
-        console.error("Error closing session:", error);
-      }
-    }
-  }, [state.sessionId, setState]);
+    if (!state.sessionId || isClosing) return;
 
+    debug('Attempting to close browser session', { sessionId: state.sessionId });
+    try {
+      setIsClosing(true);
+      // First try to gracefully end the session via the agent
+      await fetch('/api/browser/agent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: state.sessionId,
+          action: 'CLOSE'
+        })
+      });
+
+      // Then release the session
+      await endBrowserSession(state.sessionId);
+      debug('Browser session closed successfully');
+
+      setState(prev => ({
+        ...prev,
+        sessionId: undefined,
+        sessionUrl: undefined,
+        contextId: undefined,
+        error: undefined
+      }));
+    } catch (error) {
+      debug('Error closing browser session', error);
+      console.error("Error closing session:", error);
+      // Even if there's an error, clear the session state
+      setState(prev => ({
+        ...prev,
+        sessionId: undefined,
+        sessionUrl: undefined,
+        contextId: undefined,
+        error: error as Error
+      }));
+    } finally {
+      setIsClosing(false);
+    }
+  }, [state.sessionId, setState, isClosing]);
+
+  // Cleanup effect
   useEffect(() => {
     return () => {
-      close();
+      if (state.sessionId && !isClosing) {
+        debug('Cleanup effect running, closing session', { sessionId: state.sessionId });
+        close().catch(error => {
+          debug('Error in cleanup effect', error);
+        });
+      }
     };
-  }, [close]);
+  }, [close, state.sessionId, isClosing]);
 
   return {
     execute,

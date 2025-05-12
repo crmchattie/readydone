@@ -1,11 +1,16 @@
 import { Browserbase } from "@browserbasehq/sdk";
 import { BrowserbaseRegion, BrowserStep } from "@/lib/db/types";
 import { Stagehand } from "@browserbasehq/stagehand";
+import { openai } from "@ai-sdk/openai";
+import { z } from "zod";
+import { CoreMessage, generateObject, UserContent } from "ai";
 
 // Initialize Browserbase client
 const bb = new Browserbase({
   apiKey: process.env.BROWSERBASE_API_KEY!,
 });
+
+const LLMClient = openai("gpt-4.1");
 
 // Region mapping configuration
 const exactTimezoneMap: Record<string, BrowserbaseRegion> = {
@@ -37,6 +42,191 @@ const offsetRanges: {
   { min: -3, max: 4, region: "eu-central-1" }, // UTC-3 to UTC+4
   { min: 5, max: 24, region: "ap-southeast-1" }, // UTC+5 to UTC+24
 ];
+
+async function runStagehand({
+  sessionID,
+  method,
+  instruction,
+}: {
+  sessionID: string;
+  method: "GOTO" | "ACT" | "EXTRACT" | "CLOSE" | "SCREENSHOT" | "OBSERVE" | "WAIT" | "NAVBACK";
+  instruction?: string;
+}) {
+  const stagehand = new Stagehand({
+    browserbaseSessionID: sessionID,
+    env: "BROWSERBASE",
+    apiKey: process.env.BROWSERBASE_API_KEY!,
+  });
+  await stagehand.init();
+
+  const page = await stagehand.page;
+
+  try {
+    switch (method) {
+      case "GOTO":
+        await page.goto(instruction!, {
+          waitUntil: "commit",
+          timeout: 60000,
+        });
+        break;
+
+      case "ACT":
+        await page.act(instruction!);
+        break;
+
+      case "EXTRACT": {
+        const { extraction } = await page.extract(instruction!);
+        return extraction;
+      }
+
+      case "OBSERVE":
+        return instruction ? await page.observe(instruction) : await page.observe();
+
+      case "SCREENSHOT": {
+        const cdpSession = await page.context().newCDPSession(page);
+        const { data } = await cdpSession.send("Page.captureScreenshot");
+        return data;
+      }
+
+      case "WAIT":
+        await new Promise((resolve) => setTimeout(resolve, Number(instruction)));
+        break;
+
+      case "NAVBACK":
+        await page.goBack();
+        break;
+
+      case "CLOSE":
+        await stagehand.close();
+        break;
+    }
+  } catch (error) {
+    await stagehand.close();
+    throw error;
+  } finally {
+    if (method !== "CLOSE") {
+      await stagehand.close();
+    }
+  }
+}
+
+async function selectStartingUrl(goal: string) {
+  const message: CoreMessage = {
+    role: "user",
+    content: [{
+      type: "text",
+      text: `Given the goal: "${goal}", determine the best URL to start from.
+Choose from:
+1. A relevant search engine (Google, Bing, etc.)
+2. A direct URL if you're confident about the target website
+3. Any other appropriate starting point
+
+Return a URL that would be most effective for achieving this goal.`
+    }]
+  };
+
+  const result = await generateObject({
+    model: LLMClient,
+    schema: z.object({
+      url: z.string().url(),
+      reasoning: z.string()
+    }),
+    messages: [message]
+  });
+
+  return result.object;
+}
+
+async function sendPrompt({
+  goal,
+  sessionID,
+  previousSteps = [],
+  previousExtraction,
+}: {
+  goal: string;
+  sessionID: string;
+  previousSteps?: BrowserStep[];
+  previousExtraction?: any;
+}) {
+  let currentUrl = "";
+  let screenshot = null;
+
+  try {
+    const stagehand = new Stagehand({
+      browserbaseSessionID: sessionID,
+      env: "BROWSERBASE",
+      apiKey: process.env.BROWSERBASE_API_KEY!,
+    });
+    await stagehand.init();
+    currentUrl = await stagehand.page.url();
+    
+    if (previousSteps.length > 0 && previousSteps.some(step => step.tool === "GOTO")) {
+      screenshot = await runStagehand({
+        sessionID,
+        method: "SCREENSHOT"
+      });
+    }
+    
+    await stagehand.close();
+  } catch (error) {
+    console.error('Error getting page info:', error);
+  }
+
+  const content: UserContent = [
+    {
+      type: "text" as const,
+      text: `Consider the following screenshot of a web page${currentUrl ? ` (URL: ${currentUrl})` : ''}, with the goal being "${goal}".
+${previousSteps.length > 0
+    ? `Previous steps taken:
+${previousSteps
+  .map(
+    (step, index) => `
+Step ${index + 1}:
+- Action: ${step.text}
+- Reasoning: ${step.reasoning}
+- Tool Used: ${step.tool}
+- Instruction: ${step.instruction}
+`
+  )
+  .join("\n")}`
+    : ""
+}
+Determine the immediate next step to take to achieve the goal.`
+    },
+    ...(screenshot && typeof screenshot === 'string' ? [{
+      type: "image" as const,
+      image: Buffer.from(screenshot, 'base64')
+    }] : []),
+    ...(previousExtraction ? [{
+      type: "text" as const,
+      text: `Previous extraction result: ${JSON.stringify(previousExtraction)}`
+    }] : [])
+  ];
+
+  const result = await generateObject({
+    model: LLMClient,
+    schema: z.object({
+      text: z.string(),
+      reasoning: z.string(),
+      tool: z.enum([
+        "GOTO",
+        "ACT",
+        "EXTRACT",
+        "OBSERVE",
+        "CLOSE",
+        "WAIT",
+        "NAVBACK",
+      ]),
+      instruction: z.string(),
+    }),
+    messages: [{ role: "user", content }],
+  });
+
+  return {
+    result: result.object,
+    previousSteps: [...previousSteps, result.object],
+  };
+}
 
 export async function getClosestRegion(timezone?: string): Promise<BrowserbaseRegion> {
   try {
@@ -72,8 +262,12 @@ export async function getClosestRegion(timezone?: string): Promise<BrowserbaseRe
   }
 }
 
-export async function createSession(timezone?: string, contextId?: string) {
-  const browserSettings: { context?: { id: string; persist: boolean } } = {};
+export async function createSession(timezone?: string, contextId?: string, options?: { keepAlive?: boolean }) {
+  const browserSettings: { 
+    context?: { id: string; persist: boolean };
+    timeout?: number;
+    keepAliveInterval?: number;
+  } = {};
   
   if (contextId) {
     browserSettings.context = { id: contextId, persist: true };
@@ -84,10 +278,14 @@ export async function createSession(timezone?: string, contextId?: string) {
     browserSettings.context = { id: context.id, persist: true };
   }
 
+  // Add timeout and keepalive settings
+  browserSettings.timeout = 300000; // 5 minutes
+  browserSettings.keepAliveInterval = 30000; // 30 seconds
+
   const session = await bb.sessions.create({
     projectId: process.env.BROWSERBASE_PROJECT_ID!,
     browserSettings,
-    keepAlive: true,
+    keepAlive: options?.keepAlive ?? true,
     region: await getClosestRegion(timezone),
   });
 
@@ -108,94 +306,33 @@ export async function endSession(sessionId: string) {
 }
 
 export async function executeStep(sessionId: string, step: BrowserStep) {
-  const stagehand = new Stagehand({
-    apiKey: process.env.BROWSERBASE_API_KEY!,
-    browserbaseSessionID: sessionId,
-    env: "BROWSERBASE"
+  const extraction = await runStagehand({
+    sessionID: sessionId,
+    method: step.tool,
+    instruction: step.instruction,
   });
-  
-  await stagehand.init();
-  const page = await stagehand.page;
-  
-  try {
-    switch (step.tool) {
-      case 'GOTO':
-        await page.goto(step.instruction, {
-          waitUntil: "commit",
-          timeout: 60000,
-        });
-        break;
-        
-      case 'ACT':
-        await page.act(step.instruction);
-        break;
-        
-      case 'EXTRACT':
-        const data = await page.extract(step.instruction);
-        return { data };
-        
-      case 'OBSERVE':
-        return await page.observe(step.instruction);
-        
-      case 'WAIT':
-        await page.waitForTimeout(parseInt(step.instruction));
-        break;
-        
-      case 'NAVBACK':
-        await page.goBack();
-        break;
-        
-      case 'CLOSE':
-        await stagehand.close();
-        break;
-        
-      default:
-        throw new Error(`Unsupported step type: ${step.tool}`);
-    }
 
-    return { success: true };
-  } catch (error) {
-    console.error(`Error executing step ${step.tool}:`, error);
-    throw error;
-  } finally {
-    if (step.tool !== 'CLOSE') {
-      await stagehand.close();
-    }
-  }
+  return { success: true, extraction };
 }
 
-export async function getNextStep(sessionId: string, goal: string, previousSteps: BrowserStep[]) {
-  const stagehand = new Stagehand({
-    apiKey: process.env.BROWSERBASE_API_KEY!,
-    browserbaseSessionID: sessionId,
-    env: "BROWSERBASE"
-  });
-  
-  await stagehand.init();
-  const page = await stagehand.page;
-  
-  try {
-    const currentUrl = await page.url();
-    const pageState = await page.observe();
-    
-    // Here you would use an LLM to determine the next step based on:
-    // - goal
-    // - currentUrl
-    // - pageState
-    // - previousSteps
-    
-    // For now, return a simple navigation step
-    const nextStep: BrowserStep = {
-      text: 'Navigate to example.com',
-      reasoning: 'Starting with a simple navigation',
-      tool: 'GOTO',
-      instruction: 'https://example.com',
-      stepNumber: previousSteps.length + 1,
-      status: 'running'
+export async function getNextStep(sessionId: string, goal: string, previousSteps: BrowserStep[] = []) {
+  // For the first step, select a starting URL
+  if (previousSteps.length === 0) {
+    const { url, reasoning } = await selectStartingUrl(goal);
+    return {
+      text: `Navigating to ${url}`,
+      reasoning,
+      tool: "GOTO" as const,
+      instruction: url,
     };
-
-    return nextStep;
-  } finally {
-    await stagehand.close();
   }
+
+  // For subsequent steps, use LLM to determine next action
+  const { result } = await sendPrompt({
+    goal,
+    sessionID: sessionId,
+    previousSteps,
+  });
+
+  return result;
 } 

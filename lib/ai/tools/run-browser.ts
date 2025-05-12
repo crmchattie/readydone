@@ -30,7 +30,7 @@ export const runBrowser = ({ session, dataStream, chatId }: BrowserToolProps) =>
       let sessionId: string | undefined;
       
       try {
-        // Use the service directly instead of going through the client
+        // Create browser session
         const browserSession = await createSession(
           Intl.DateTimeFormat().resolvedOptions().timeZone
         );
@@ -38,15 +38,37 @@ export const runBrowser = ({ session, dataStream, chatId }: BrowserToolProps) =>
 
         debug('Created browser session', { sessionId: browserSession.sessionId });
 
-        // Return immediately to start streaming the UI
+        // Start the agent immediately
+        const agentResponse = await fetch('/api/browser/agent', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sessionId: browserSession.sessionId,
+            goal: task,
+            action: 'START'
+          })
+        });
+
+        if (!agentResponse.ok) {
+          const errorData = await agentResponse.json();
+          throw new Error(errorData.error || 'Failed to start browser agent');
+        }
+
+        const agentData = await agentResponse.json();
+        debug('Agent started successfully', agentData);
+
+        // Return with initial state and first step if available
         return {
           state: 'result' as const,
           sessionId: browserSession.sessionId,
           sessionUrl: browserSession.sessionUrl,
           contextId: browserSession.contextId,
           task,
-          steps: [],
+          steps: agentData.steps || [],
           currentStep: 0,
+          extractedData: agentData.extraction || null,
         };
       } catch (error) {
         debug('Error in browser tool', error);

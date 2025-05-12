@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { BrowserStep } from '@/lib/db/types';
 import { executeStep, getNextStep } from '@/lib/browserbase/service';
 
 export async function POST(request: Request) {
@@ -14,6 +13,27 @@ export async function POST(request: Request) {
     }
 
     switch (action) {
+      case 'START': {
+        if (!goal) {
+          return NextResponse.json(
+            { error: 'Goal is required for START' },
+            { status: 400 }
+          );
+        }
+        
+        // Get and execute first step
+        const firstStep = await getNextStep(sessionId, goal, []);
+        const result = await executeStep(sessionId, firstStep);
+        
+        return NextResponse.json({
+          success: true,
+          result: firstStep,
+          extraction: result.extraction,
+          steps: [firstStep],
+          done: firstStep.tool === 'CLOSE'
+        });
+      }
+
       case 'GET_NEXT_STEP': {
         if (!goal) {
           return NextResponse.json(
@@ -26,6 +46,7 @@ export async function POST(request: Request) {
         return NextResponse.json({
           success: true,
           result: nextStep,
+          steps: [...previousSteps, nextStep],
           done: nextStep.tool === 'CLOSE'
         });
       }
@@ -41,7 +62,7 @@ export async function POST(request: Request) {
         const result = await executeStep(sessionId, step);
         return NextResponse.json({
           success: true,
-          ...result,
+          extraction: result.extraction,
           done: step.tool === 'CLOSE'
         });
       }

@@ -3,8 +3,8 @@ import { createSession, endSession } from '@/lib/browserbase/service';
 
 export async function POST(request: Request) {
   try {
-    const { timezone, contextId } = await request.json();
-    const result = await createSession(timezone, contextId);
+    const { timezone, contextId, keepAlive } = await request.json();
+    const result = await createSession(timezone, contextId, { keepAlive });
     return NextResponse.json({ success: true, result });
   } catch (error) {
     console.error('Error creating session:', error);

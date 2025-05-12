@@ -11,6 +11,11 @@ import { toast } from 'sonner';
 import { useBrowser } from "@/hooks/use-browser";
 import { Button } from "./ui/button";
 
+// Debug helper
+const debug = (message: string, data?: any) => {
+  console.debug(`[BrowserPreview] ${message}`, data ? data : '');
+};
+
 export interface BrowserPreviewProps {
   result?: BrowserResult;
   args?: {
@@ -39,21 +44,24 @@ interface BrowserHeaderProps {
   onPause: () => void;
   onResume: () => void;
   onClose: () => void;
+  isCompleted?: boolean;
 }
 
-function BrowserHeader({ title, isConnected, isPaused, onPause, onResume, onClose }: BrowserHeaderProps) {
+function BrowserHeader({ title, isConnected, isPaused, onPause, onResume, onClose, isCompleted }: BrowserHeaderProps) {
   return (
     <div className="flex items-center justify-between">
       <h3 className="text-lg font-medium">{title}</h3>
       <div className="flex items-center gap-2">
         <div className={cn(
           "w-2 h-2 rounded-full",
-          isConnected ? "bg-green-500" : "bg-red-500"
+          isCompleted ? "bg-green-500" :
+          isConnected ? "bg-blue-500" : "bg-red-500"
         )} />
         <span className="text-sm text-gray-500">
-          {isConnected ? (isPaused ? "Paused" : "Connected") : "Disconnected"}
+          {isCompleted ? "Completed" :
+           isConnected ? (isPaused ? "Paused" : "Connected") : "Disconnected"}
         </span>
-        {isConnected && (
+        {isConnected && !isCompleted && (
           <div className="flex gap-2">
             <Button
               variant="ghost"
@@ -81,14 +89,15 @@ interface BrowserContentProps {
   args?: BrowserPreviewProps['args'];
   isPaused: boolean;
   onExecute: () => void;
+  isCompleted?: boolean;
 }
 
-function BrowserContent({ result, args, isPaused, onExecute }: BrowserContentProps) {
+function BrowserContent({ result, args, isPaused, onExecute, isCompleted }: BrowserContentProps) {
   if (!result && !args) return null;
 
   return (
     <div className="flex flex-col gap-4">
-      {args && (
+      {args && !isCompleted && (
         <div className="p-4 bg-gray-50 rounded-lg">
           <h4 className="font-medium mb-2">Task Details</h4>
           <p className="text-sm text-gray-600">URL: {args.url}</p>
@@ -101,7 +110,7 @@ function BrowserContent({ result, args, isPaused, onExecute }: BrowserContentPro
               Variables: {Object.keys(args.variables).join(', ')}
             </p>
           )}
-          {!result && (
+          {!result?.sessionId && (
             <Button
               className="mt-4"
               onClick={onExecute}
@@ -114,7 +123,10 @@ function BrowserContent({ result, args, isPaused, onExecute }: BrowserContentPro
       )}
 
       {result?.steps && result.steps.length > 0 && (
-        <div className="p-4 bg-gray-50 rounded-lg">
+        <div className={cn(
+          "p-4 rounded-lg",
+          isCompleted ? "bg-green-50" : "bg-gray-50"
+        )}>
           <h4 className="font-medium mb-2">Actions Taken</h4>
           <div className="space-y-2">
             {result.steps.map((step: BrowserStep, index: number) => (
@@ -122,7 +134,7 @@ function BrowserContent({ result, args, isPaused, onExecute }: BrowserContentPro
                 key={index} 
                 className={cn(
                   "flex items-start gap-2",
-                  result.currentStep === index && "bg-blue-50 p-2 rounded"
+                  !isCompleted && result.currentStep === index && "bg-blue-50 p-2 rounded"
                 )}
               >
                 <div className={cn(
@@ -168,56 +180,136 @@ function BrowserContent({ result, args, isPaused, onExecute }: BrowserContentPro
 
 export function BrowserPreview({ result, args, isReadonly }: BrowserPreviewProps) {
   const [session, setSession] = useAtom(browserStateAtom);
-  const { execute, close, result: browserResult } = useBrowser();
+  const { execute, close } = useBrowser();
   const [isPaused, setIsPaused] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
 
+  debug('Render', { result, session, isPaused });
+
+  // Handle session state updates from result
   useEffect(() => {
-    if (result?.sessionId && !session.sessionId) {
+    if (result?.sessionId) {
+      debug('Updating session from result', { result });
       setSession({
         sessionId: result.sessionId,
         sessionUrl: result.sessionUrl,
         contextId: result.contextId,
-        currentStep: 0,
+        currentStep: result.currentStep || 0,
         steps: result.steps || [],
         extractedData: result.extractedData || null,
         error: result.error || undefined
       });
     }
-  }, [
-    result?.sessionId,
-    result?.sessionUrl,
-    result?.contextId,
-    result?.steps,
-    result?.extractedData,
-    result?.error,
-    session.sessionId,
-    setSession
-  ]);
+  }, [result, setSession]);
+
+  // Handle cleanup when the component unmounts or when the session should be cleared
+  useEffect(() => {
+    // If we have a session but the result indicates no session (completed/failed state)
+    // then we should clean up our session
+    if (session.sessionId && result && !result.sessionId) {
+      debug('Cleaning up session state', { session, result });
+      setSession({
+        sessionId: undefined,
+        sessionUrl: undefined,
+        contextId: undefined,
+        steps: result.steps || [],
+        currentStep: result.currentStep || 0,
+        extractedData: result.extractedData || null,
+        error: result.error || undefined
+      });
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (session.sessionId) {
+        debug('Component unmounting, closing session');
+        close().catch(error => {
+          debug('Error in cleanup', error);
+        });
+      }
+    };
+  }, [session.sessionId, result, setSession, close, session]);
+
+  // Combine the tool result with our session state
+  const finalResult: BrowserResult = {
+    state: "result",
+    sessionId: session.sessionId || result?.sessionId,
+    sessionUrl: session.sessionUrl || result?.sessionUrl,
+    contextId: session.contextId || result?.contextId,
+    steps: session.steps.length > 0 ? session.steps : result?.steps || [],
+    currentStep: session.currentStep || result?.currentStep || 0,
+    extractedData: session.extractedData || result?.extractedData,
+    error: session.error || result?.error
+  };
+
+  debug('Combined result state', { finalResult });
+
+  const isConnected = !!finalResult.sessionId;
+  // Consider a session completed if all steps are completed or failed
+  const isCompleted = finalResult.steps.length > 0 && 
+    finalResult.steps.every(step => step.status === 'completed' || step.status === 'failed');
+
+  debug('Session status', { isConnected, isCompleted });
 
   const handleExecute = async () => {
-    if (!args?.task) return;
+    if (!args?.task || isRetrying) return;
+    debug('Executing task', { task: args.task });
     try {
+      setIsRetrying(true);
       await execute(args.task);
     } catch (error) {
+      debug('Error executing task', error);
       toast.error("Failed to execute browser task");
+    } finally {
+      setIsRetrying(false);
     }
   };
 
   const handleClose = async () => {
+    if (!session.sessionId) return;
+    
+    debug('Closing session', { sessionId: session.sessionId });
     try {
       await close();
+      debug('Session closed, updating state');
+      setSession({
+        sessionId: undefined,
+        sessionUrl: undefined,
+        contextId: undefined,
+        steps: finalResult.steps,
+        currentStep: finalResult.currentStep,
+        extractedData: finalResult.extractedData,
+        error: undefined
+      });
       toast.success("Browser session closed");
     } catch (error) {
+      debug('Error closing session', error);
       toast.error("Failed to close browser session");
     }
   };
 
+  const handleRetry = async () => {
+    if (isRetrying) return;
+    
+    debug('Retrying task');
+    try {
+      setIsRetrying(true);
+      await handleClose();
+      // Wait for a bit before retrying
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await handleExecute();
+    } catch (error) {
+      debug('Error retrying task', error);
+      toast.error("Failed to retry task");
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
   if (!result && !args) {
+    debug('No result or args, showing skeleton');
     return <LoadingSkeleton />;
   }
-
-  const finalResult = browserResult || result;
-  const isConnected = !!session.sessionId;
 
   return (
     <div className="flex flex-col gap-4">
@@ -227,26 +319,57 @@ export function BrowserPreview({ result, args, isReadonly }: BrowserPreviewProps
             title={args?.task || "Browser Session"} 
             isConnected={isConnected}
             isPaused={isPaused}
-            onPause={() => setIsPaused(true)}
-            onResume={() => setIsPaused(false)}
+            onPause={() => {
+              debug('Pausing session');
+              setIsPaused(true);
+            }}
+            onResume={() => {
+              debug('Resuming session');
+              setIsPaused(false);
+            }}
             onClose={handleClose}
+            isCompleted={isCompleted}
           />
           <BrowserContent 
             result={finalResult} 
             args={args} 
             isPaused={isPaused}
             onExecute={handleExecute}
+            isCompleted={isCompleted}
           />
-          {session.sessionUrl && !isPaused && (
-            <div className="mt-4 w-full aspect-video rounded-lg overflow-hidden border border-gray-200">
+          {finalResult.sessionUrl && !isPaused && !isCompleted && (
+            <div className="mt-4 w-full aspect-video rounded-lg overflow-hidden border border-gray-200 relative">
               <iframe
-                src={session.sessionUrl}
+                src={finalResult.sessionUrl}
                 className="size-full"
                 sandbox="allow-same-origin allow-scripts allow-forms"
                 loading="lazy"
                 referrerPolicy="no-referrer"
                 title="Browser Session"
               />
+              {finalResult.error && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50">
+                  <div className="bg-white p-4 rounded-lg shadow-lg max-w-md">
+                    <h4 className="text-red-600 font-medium mb-2">Browser Session Error</h4>
+                    <p className="text-sm text-gray-600 mb-4">{finalResult.error.message}</p>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={handleClose}
+                        disabled={isRetrying}
+                      >
+                        Close Session
+                      </Button>
+                      <Button
+                        onClick={handleRetry}
+                        disabled={isRetrying}
+                      >
+                        {isRetrying ? 'Retrying...' : 'Retry Task'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -254,3 +377,17 @@ export function BrowserPreview({ result, args, isReadonly }: BrowserPreviewProps
     </div>
   );
 } 
+
+export function BrowserToolComponent({ toolInvocation, isReadonly }: { 
+    toolInvocation: any;
+    isReadonly: boolean;
+  }) {
+    const { args, state, result } = toolInvocation;
+    return (
+      <BrowserPreview 
+        args={args} 
+        result={state === 'result' ? result : undefined} 
+        isReadonly={isReadonly} 
+      />
+    );
+  }
