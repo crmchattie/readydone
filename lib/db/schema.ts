@@ -123,7 +123,7 @@ export type Vote = InferSelectModel<typeof vote>;
 export const document = pgTable('Document', {
   id: uuid('id').notNull(),
   title: varchar('title').notNull(),
-  kind: varchar('kind', { enum: ['text', 'code', 'sheet', 'image'] }).notNull(),
+  kind: varchar('kind', { enum: ['text', 'code', 'sheet', 'image', 'browser'] }).notNull(),
   content: text('content').notNull(),
   summary: text('summary'),
   chatId: uuid('chatId').notNull().references(() => chat.id, { onDelete: 'cascade' }),

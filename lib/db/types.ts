@@ -13,7 +13,7 @@ export interface Business {
 }
 
 // Browser automation types
-export type BrowserbaseRegion = "us-east-1" | "us-west-2" | "eu-central-1" | "ap-southeast-1";
+export type BrowserbaseRegion = 'us-east-1' | 'us-west-2' | 'eu-central-1' | 'ap-southeast-1';
 
 export interface BrowserSession {
   sessionId: string | null;
@@ -24,10 +24,9 @@ export interface BrowserSession {
 export interface BrowserStep {
   text: string;
   reasoning: string;
-  tool: "GOTO" | "ACT" | "EXTRACT" | "OBSERVE" | "CLOSE" | "WAIT" | "NAVBACK";
+  tool: 'GOTO' | 'ACT' | 'EXTRACT' | 'OBSERVE' | 'CLOSE' | 'WAIT' | 'NAVBACK';
   instruction: string;
-  stepNumber?: number;
-  status?: 'running' | 'completed' | 'failed';
+  status?: 'pending' | 'running' | 'completed' | 'failed';
   error?: Error;
 }
 
@@ -42,14 +41,19 @@ export interface BrowserState {
 }
 
 export interface BrowserResult {
-  state: "result";
+  state: 'result';
   sessionId?: string;
   sessionUrl?: string;
   contextId?: string;
   steps: BrowserStep[];
   currentStep: number;
+  extractedData?: any;
   error?: Error;
-  extractedData: any;
+  task?: string;
+  url?: string;
+  variables?: Record<string, string>;
+  extractionSchema?: Record<string, any>;
+  maxAttempts?: number;
 }
 
 export interface BrowserAction {

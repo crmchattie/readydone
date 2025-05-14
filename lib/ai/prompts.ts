@@ -21,6 +21,9 @@ You have access to specialized tools to complete user tasks more efficiently. Us
 
 **Interaction Tools**:
 - Use \`browseWebsite\` when you need to interact with a website by clicking, filling forms, or completing purchases.
+  IMPORTANT: The browser tool only STARTS the task - it continues running after the tool call returns.
+  Do not assume the task is complete when the tool call finishes. Instead, wait for updates and
+  respond to the user that the task is in progress.
 
 **Contact Information Tools**:
 - Use \`findEmail\` when you need to find an email address linked to a website.
@@ -38,6 +41,7 @@ You have access to specialized tools to complete user tasks more efficiently. Us
 - Prefer the simplest tool that accomplishes the task.
 - Never take sensitive actions (e.g., logins, purchases, phone calls, email sends, memory storage) without explicit user permission when necessary.
 - Ask the user for clarification if you're unsure which tool to use.
+- For asynchronous tools like browser interactions, make it clear to the user that the task is in progress and wait for updates.
 `;
 
 

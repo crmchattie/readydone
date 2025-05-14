@@ -8,6 +8,7 @@ import {
   useCallback,
   useEffect,
   useState,
+  useRef,
 } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { useDebounceCallback, useWindowSize } from 'usehooks-ts';
@@ -24,6 +25,7 @@ import { imageArtifact } from '@/artifacts/image/client';
 import { codeArtifact } from '@/artifacts/code/client';
 import { sheetArtifact } from '@/artifacts/sheet/client';
 import { textArtifact } from '@/artifacts/text/client';
+import { browserArtifact } from '@/artifacts/browser/client';
 import equal from 'fast-deep-equal';
 import { UseChatHelpers } from '@ai-sdk/react';
 
@@ -32,6 +34,7 @@ export const artifactDefinitions = [
   codeArtifact,
   imageArtifact,
   sheetArtifact,
+  browserArtifact,
 ];
 export type ArtifactKind = (typeof artifactDefinitions)[number]['kind'];
 
@@ -42,6 +45,12 @@ export interface UIArtifact {
   content: string;
   isVisible: boolean;
   status: 'streaming' | 'idle';
+  metadata?: {
+    sessionId?: string;
+    instanceId?: string;
+    steps?: any[];
+    isLoading?: boolean;
+  };
   boundingBox: {
     top: number;
     left: number;
@@ -82,6 +91,32 @@ function PureArtifact({
   isReadonly: boolean;
 }) {
   const { artifact, setArtifact, metadata, setMetadata } = useArtifact();
+  const browserSessionRef = useRef<{
+    sessionId?: string;
+    instanceId?: string;
+    content?: string;
+  }>({});
+
+  // Store browser session info when artifact becomes visible
+  useEffect(() => {
+    if (artifact.isVisible && artifact.kind === 'browser') {
+      browserSessionRef.current = {
+        sessionId: artifact.metadata?.sessionId,
+        instanceId: artifact.metadata?.instanceId,
+        content: artifact.content
+      };
+    }
+  }, [artifact.isVisible, artifact.kind, artifact.metadata]);
+
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      // Don't cleanup if we're just transitioning and have session info
+      if (browserSessionRef.current.sessionId) {
+        console.log('[Artifact] Preserving browser session during transition', browserSessionRef.current);
+      }
+    };
+  }, []);
 
   const {
     data: documents,
@@ -249,7 +284,7 @@ function PureArtifact({
   }, [artifact.documentId, artifactDefinition, setMetadata]);
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {artifact.isVisible && (
         <motion.div
           data-testid="artifact"

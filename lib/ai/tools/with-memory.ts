@@ -15,6 +15,8 @@ interface MemoryToolsProps {
   userId: string;
 }
 
+// FIXME: REMOVE USER MEMORIES AS AN AGENT TOOL; ADD PROBLEM/SOLUTION MEMORIES
+
 async function mergeMemories(existingMemory: string, newMemory: string): Promise<string> {
   debug('Starting memory merge', {
     existingMemoryLength: existingMemory.length,

@@ -55,7 +55,7 @@ async function runStagehand({
   const stagehand = new Stagehand({
     browserbaseSessionID: sessionID,
     env: "BROWSERBASE",
-    apiKey: process.env.BROWSERBASE_API_KEY!,
+    logger: () => {}
   });
   await stagehand.init();
 
@@ -155,7 +155,7 @@ async function sendPrompt({
     const stagehand = new Stagehand({
       browserbaseSessionID: sessionID,
       env: "BROWSERBASE",
-      apiKey: process.env.BROWSERBASE_API_KEY!,
+      logger: () => {}
     });
     await stagehand.init();
     currentUrl = await stagehand.page.url();
@@ -306,13 +306,24 @@ export async function endSession(sessionId: string) {
 }
 
 export async function executeStep(sessionId: string, step: BrowserStep) {
-  const extraction = await runStagehand({
-    sessionID: sessionId,
-    method: step.tool,
-    instruction: step.instruction,
-  });
+  try {
+    const stagehand = new Stagehand({
+      browserbaseSessionID: sessionId,
+      env: "BROWSERBASE",
+      logger: () => {}
+    });
+    await stagehand.init();
 
-  return { success: true, extraction };
+    const extraction = await runStagehand({
+      sessionID: sessionId,
+      method: step.tool,
+      instruction: step.instruction,
+    });
+
+    return { success: true, extraction };
+  } catch (error) {
+    return { success: false, error };
+  }
 }
 
 export async function getNextStep(sessionId: string, goal: string, previousSteps: BrowserStep[] = []) {

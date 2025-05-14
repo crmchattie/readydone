@@ -1,38 +1,44 @@
 'use client';
 
-import { useEffect, useState } from "react";
-import { useAtom } from "jotai";
+import { useEffect, useRef, useState, memo } from "react";
 import { motion } from "framer-motion";
-import { browserStateAtom } from "@/lib/browserbase/store";
-import { BrowserResult, BrowserStep } from "@/lib/db/types";
-import { PauseIcon, PlayIcon, RefreshIcon } from './icons';
+import { BrowserResult, BrowserStep, BrowserState } from "@/lib/db/types";
+import { FullscreenIcon, LoaderIcon } from './icons';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
-import { useBrowser } from "@/hooks/use-browser";
-import { Button } from "./ui/button";
-
-// Debug helper
-const debug = (message: string, data?: any) => {
-  console.debug(`[BrowserPreview] ${message}`, data ? data : '');
-};
+import { useArtifact } from '@/hooks/use-artifact';
+import { useBrowser } from '@/hooks/use-browser';
+import { BrowserContent } from '@/components/browser-content';
 
 export interface BrowserPreviewProps {
   result?: BrowserResult;
   args?: {
-    url: string;
     task: string;
+    url?: string;
     variables?: Record<string, string>;
     extractionSchema?: Record<string, any>;
     maxAttempts?: number;
   };
   isReadonly?: boolean;
+  isInline?: boolean;
 }
 
 function LoadingSkeleton() {
   return (
-    <div className="animate-pulse">
-      <div className="h-8 bg-gray-200 rounded w-1/4 mb-4" />
-      <div className="h-64 bg-gray-200 rounded" />
+    <div className="w-full">
+      <div className="p-4 border rounded-t-2xl flex flex-row gap-2 items-center justify-between dark:bg-muted h-[57px] dark:border-zinc-700 border-b-0">
+        <div className="flex flex-row items-center gap-3">
+          <div className="text-muted-foreground">
+            <div className="animate-pulse rounded-md size-4 bg-muted-foreground/20" />
+          </div>
+          <div className="animate-pulse rounded-lg h-4 bg-muted-foreground/20 w-24" />
+        </div>
+        <div>
+          <FullscreenIcon />
+        </div>
+      </div>
+      <div className="overflow-y-scroll border rounded-b-2xl bg-muted border-t-0 dark:border-zinc-700">
+        <div className="animate-pulse h-[257px] bg-muted-foreground/20 w-full" />
+      </div>
     </div>
   );
 }
@@ -40,354 +46,219 @@ function LoadingSkeleton() {
 interface BrowserHeaderProps {
   title: string;
   isConnected: boolean;
-  isPaused: boolean;
-  onPause: () => void;
-  onResume: () => void;
-  onClose: () => void;
-  isCompleted?: boolean;
+  isLoading?: boolean;
+  onToggleFullscreen: () => void;
 }
 
-function BrowserHeader({ title, isConnected, isPaused, onPause, onResume, onClose, isCompleted }: BrowserHeaderProps) {
-  return (
-    <div className="flex items-center justify-between">
-      <h3 className="text-lg font-medium">{title}</h3>
-      <div className="flex items-center gap-2">
-        <div className={cn(
-          "w-2 h-2 rounded-full",
-          isCompleted ? "bg-green-500" :
-          isConnected ? "bg-blue-500" : "bg-red-500"
-        )} />
-        <span className="text-sm text-gray-500">
-          {isCompleted ? "Completed" :
-           isConnected ? (isPaused ? "Paused" : "Connected") : "Disconnected"}
-        </span>
-        {isConnected && !isCompleted && (
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={isPaused ? onResume : onPause}
-            >
-              {isPaused ? <PlayIcon size={16} /> : <PauseIcon size={16} />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-            >
-              <RefreshIcon size={16} />
-            </Button>
+const PureBrowserHeader = ({ 
+  title, 
+  isConnected,
+  isLoading,
+  onToggleFullscreen
+}: BrowserHeaderProps) => (
+  <div className="p-4 border rounded-t-2xl flex flex-row gap-2 items-start sm:items-center justify-between dark:bg-muted border-b-0 dark:border-zinc-700">
+    <div className="flex flex-row items-start sm:items-center gap-3">
+      <div className="text-muted-foreground">
+        {isLoading ? (
+          <div className="animate-spin">
+            <LoaderIcon />
           </div>
+        ) : (
+          <div className={cn(
+            "w-2 h-2 rounded-full",
+            isConnected ? "bg-blue-500" : "bg-red-500"
+          )} />
         )}
       </div>
+      <div className="-translate-y-1 sm:translate-y-0 font-medium">{title}</div>
     </div>
-  );
-}
-
-interface BrowserContentProps {
-  result?: BrowserResult;
-  args?: BrowserPreviewProps['args'];
-  isPaused: boolean;
-  onExecute: () => void;
-  isCompleted?: boolean;
-}
-
-function BrowserContent({ result, args, isPaused, onExecute, isCompleted }: BrowserContentProps) {
-  if (!result && !args) return null;
-
-  return (
-    <div className="flex flex-col gap-4">
-      {args && !isCompleted && (
-        <div className="p-4 bg-gray-50 rounded-lg">
-          <h4 className="font-medium mb-2">Task Details</h4>
-          <p className="text-sm text-gray-600">URL: {args.url}</p>
-          <p className="text-sm text-gray-600">Task: {args.task}</p>
-          {args.maxAttempts && (
-            <p className="text-sm text-gray-600">Max Attempts: {args.maxAttempts}</p>
-          )}
-          {args.variables && Object.keys(args.variables).length > 0 && (
-            <p className="text-sm text-gray-600">
-              Variables: {Object.keys(args.variables).join(', ')}
-            </p>
-          )}
-          {!result?.sessionId && (
-            <Button
-              className="mt-4"
-              onClick={onExecute}
-              disabled={isPaused}
-            >
-              Start Task
-            </Button>
-          )}
-        </div>
+    <div 
+      className={cn(
+        "p-2 rounded-md cursor-pointer",
+        isConnected 
+          ? "hover:dark:bg-zinc-700 hover:bg-zinc-100" 
+          : "opacity-50 cursor-not-allowed"
       )}
-
-      {result?.steps && result.steps.length > 0 && (
-        <div className={cn(
-          "p-4 rounded-lg",
-          isCompleted ? "bg-green-50" : "bg-gray-50"
-        )}>
-          <h4 className="font-medium mb-2">Actions Taken</h4>
-          <div className="space-y-2">
-            {result.steps.map((step: BrowserStep, index: number) => (
-              <div 
-                key={index} 
-                className={cn(
-                  "flex items-start gap-2",
-                  !isCompleted && result.currentStep === index && "bg-blue-50 p-2 rounded"
-                )}
-              >
-                <div className={cn(
-                  "w-6 h-6 rounded-full flex items-center justify-center text-sm",
-                  step.status === 'completed' ? "bg-green-100 text-green-600" :
-                  step.status === 'failed' ? "bg-red-100 text-red-600" :
-                  step.status === 'running' ? "bg-blue-100 text-blue-600" :
-                  "bg-gray-100 text-gray-600"
-                )}>
-                  {index + 1}
-                </div>
-                <div>
-                  <p className="text-sm font-medium">{step.text}</p>
-                  <p className="text-xs text-gray-500">{step.reasoning}</p>
-                  {step.status === 'failed' && step.error && (
-                    <p className="text-xs text-red-600">Error: {step.error.message}</p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {result?.error && (
-        <div className="p-4 bg-red-50 rounded-lg">
-          <h4 className="font-medium text-red-600 mb-2">Error</h4>
-          <p className="text-sm text-red-600">{result.error.message}</p>
-        </div>
-      )}
-
-      {result?.extractedData && (
-        <div className="p-4 bg-gray-50 rounded-lg">
-          <h4 className="font-medium mb-2">Extracted Data</h4>
-          <pre className="text-sm bg-white p-2 rounded border">
-            {JSON.stringify(result.extractedData, null, 2)}
-          </pre>
-        </div>
-      )}
+      onClick={isConnected ? onToggleFullscreen : undefined}
+    >
+      <FullscreenIcon />
     </div>
-  );
-}
+  </div>
+);
 
-export function BrowserPreview({ result, args, isReadonly }: BrowserPreviewProps) {
-  const [session, setSession] = useAtom(browserStateAtom);
-  const { execute, close } = useBrowser();
-  const [isPaused, setIsPaused] = useState(false);
-  const [isRetrying, setIsRetrying] = useState(false);
+const BrowserHeader = memo(PureBrowserHeader, (prevProps, nextProps) => {
+  if (prevProps.title !== nextProps.title) return false;
+  if (prevProps.isConnected !== nextProps.isConnected) return false;
+  if (prevProps.isLoading !== nextProps.isLoading) return false;
+  return true;
+});
 
-  debug('Render', { result, session, isPaused });
+export function BrowserPreview({ result: initialResult, args, isReadonly, isInline = true }: BrowserPreviewProps) {
+  const { artifact, setArtifact } = useArtifact();
+  // Create a stable instance ID using the task as a key
+  const instanceId = useRef(args?.task ? 
+    `browser-${args.task.slice(0, 32).replace(/[^a-zA-Z0-9]/g, '-')}` : 
+    Math.random().toString(36).substring(7)
+  ).current;
+  const { session, execute } = useBrowser(instanceId);
+  const hitboxRef = useRef<HTMLDivElement>(null);
+  const hasAttemptedExecution = useRef(false);
+  const [isExecuting, setIsExecuting] = useState(false);
 
-  // Handle session state updates from result
+  // Handle task execution
   useEffect(() => {
-    if (result?.sessionId) {
-      debug('Updating session from result', { result });
-      setSession({
-        sessionId: result.sessionId,
-        sessionUrl: result.sessionUrl,
-        contextId: result.contextId,
-        currentStep: result.currentStep || 0,
-        steps: result.steps || [],
-        extractedData: result.extractedData || null,
-        error: result.error || undefined
-      });
-    }
-  }, [result, setSession]);
-
-  // Handle cleanup when the component unmounts or when the session should be cleared
-  useEffect(() => {
-    // If we have a session but the result indicates no session (completed/failed state)
-    // then we should clean up our session
-    if (session.sessionId && result && !result.sessionId) {
-      debug('Cleaning up session state', { session, result });
-      setSession({
-        sessionId: undefined,
-        sessionUrl: undefined,
-        contextId: undefined,
-        steps: result.steps || [],
-        currentStep: result.currentStep || 0,
-        extractedData: result.extractedData || null,
-        error: result.error || undefined
-      });
-    }
-
-    // Cleanup on unmount
-    return () => {
-      if (session.sessionId) {
-        debug('Component unmounting, closing session');
-        close().catch(error => {
-          debug('Error in cleanup', error);
-        });
+    const executeTask = async () => {
+      try {
+        if (args?.task && !session.sessionId && !session.isLoading && !initialResult && !hasAttemptedExecution.current && !isExecuting) {
+          hasAttemptedExecution.current = true;
+          setIsExecuting(true);
+          try {
+            await execute(args.task);
+          } catch (error) {
+            throw error;
+          } finally {
+            setIsExecuting(false);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to execute browser task:', error);
+        setIsExecuting(false);
       }
     };
-  }, [session.sessionId, result, setSession, close, session]);
 
-  // Combine the tool result with our session state
-  const finalResult: BrowserResult = {
-    state: "result",
-    sessionId: session.sessionId || result?.sessionId,
-    sessionUrl: session.sessionUrl || result?.sessionUrl,
-    contextId: session.contextId || result?.contextId,
-    steps: session.steps.length > 0 ? session.steps : result?.steps || [],
-    currentStep: session.currentStep || result?.currentStep || 0,
-    extractedData: session.extractedData || result?.extractedData,
-    error: session.error || result?.error
-  };
+    executeTask();
+  }, [args?.task, session.sessionId, session.isLoading, execute, initialResult, instanceId, isExecuting]);
 
-  debug('Combined result state', { finalResult });
+  // Handle URL resolution
+  const sessionUrl = session.sessionUrl || initialResult?.sessionUrl;
+  
+  useEffect(() => {
+  }, [session.sessionUrl, initialResult?.sessionUrl, sessionUrl, instanceId]);
 
-  const isConnected = !!finalResult.sessionId;
-  // Consider a session completed if all steps are completed or failed
-  const isCompleted = finalResult.steps.length > 0 && 
-    finalResult.steps.every(step => step.status === 'completed' || step.status === 'failed');
-
-  debug('Session status', { isConnected, isCompleted });
-
-  const handleExecute = async () => {
-    if (!args?.task || isRetrying) return;
-    debug('Executing task', { task: args.task });
-    try {
-      setIsRetrying(true);
-      await execute(args.task);
-    } catch (error) {
-      debug('Error executing task', error);
-      toast.error("Failed to execute browser task");
-    } finally {
-      setIsRetrying(false);
+  // Handle artifact updates
+  useEffect(() => {
+    const boundingBox = hitboxRef.current?.getBoundingClientRect();
+    if (boundingBox && sessionUrl) {
+      setArtifact((artifact) => ({
+        ...artifact,
+        kind: 'browser',
+        title: args?.task || "Browser Session",
+        content: sessionUrl,
+        boundingBox: {
+          left: boundingBox.x,
+          top: boundingBox.y,
+          width: boundingBox.width,
+          height: boundingBox.height,
+        },
+      }));
     }
-  };
+  }, [setArtifact, sessionUrl, initialResult?.sessionUrl, args?.task, instanceId, artifact.isVisible, session.steps]);
 
-  const handleClose = async () => {
-    if (!session.sessionId) return;
-    
-    debug('Closing session', { sessionId: session.sessionId });
-    try {
-      await close();
-      debug('Session closed, updating state');
-      setSession({
-        sessionId: undefined,
-        sessionUrl: undefined,
-        contextId: undefined,
-        steps: finalResult.steps,
-        currentStep: finalResult.currentStep,
-        extractedData: finalResult.extractedData,
-        error: undefined
-      });
-      toast.success("Browser session closed");
-    } catch (error) {
-      debug('Error closing session', error);
-      toast.error("Failed to close browser session");
-    }
-  };
-
-  const handleRetry = async () => {
-    if (isRetrying) return;
-    
-    debug('Retrying task');
-    try {
-      setIsRetrying(true);
-      await handleClose();
-      // Wait for a bit before retrying
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      await handleExecute();
-    } catch (error) {
-      debug('Error retrying task', error);
-      toast.error("Failed to retry task");
-    } finally {
-      setIsRetrying(false);
-    }
-  };
-
-  if (!result && !args) {
-    debug('No result or args, showing skeleton');
+  if (!initialResult && !args) {
     return <LoadingSkeleton />;
   }
 
+  const isConnected = !!session.sessionId || !!initialResult?.sessionId;
+  const steps = session.steps.length > 0 ? session.steps : (initialResult?.steps || []);
+  const isCompleted = !session.isLoading && steps.length > 0 && 
+    steps.every(step => step.status === 'completed' || step.status === 'failed');
+  const isLoading = session.isLoading || isExecuting || (steps.length > 0 && !isCompleted);
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="relative">
-        <div className="flex flex-col gap-2">
-          <BrowserHeader 
-            title={args?.task || "Browser Session"} 
-            isConnected={isConnected}
-            isPaused={isPaused}
-            onPause={() => {
-              debug('Pausing session');
-              setIsPaused(true);
-            }}
-            onResume={() => {
-              debug('Resuming session');
-              setIsPaused(false);
-            }}
-            onClose={handleClose}
-            isCompleted={isCompleted}
-          />
-          <BrowserContent 
-            result={finalResult} 
-            args={args} 
-            isPaused={isPaused}
-            onExecute={handleExecute}
-            isCompleted={isCompleted}
-          />
-          {finalResult.sessionUrl && !isPaused && !isCompleted && (
-            <div className="mt-4 w-full aspect-video rounded-lg overflow-hidden border border-gray-200 relative">
-              <iframe
-                src={finalResult.sessionUrl}
-                className="size-full"
-                sandbox="allow-same-origin allow-scripts allow-forms"
-                loading="lazy"
-                referrerPolicy="no-referrer"
-                title="Browser Session"
-              />
-              {finalResult.error && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50">
-                  <div className="bg-white p-4 rounded-lg shadow-lg max-w-md">
-                    <h4 className="text-red-600 font-medium mb-2">Browser Session Error</h4>
-                    <p className="text-sm text-gray-600 mb-4">{finalResult.error.message}</p>
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={handleClose}
-                        disabled={isRetrying}
-                      >
-                        Close Session
-                      </Button>
-                      <Button
-                        onClick={handleRetry}
-                        disabled={isRetrying}
-                      >
-                        {isRetrying ? 'Retrying...' : 'Retry Task'}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+    <motion.div 
+      className="flex flex-col rounded-2xl border border-gray-200 overflow-hidden bg-white dark:bg-muted dark:border-zinc-700"
+      variants={{
+        hidden: { opacity: 0, scale: 0.95 },
+        visible: {
+          opacity: 1,
+          scale: 1,
+          transition: {
+            type: "spring",
+            stiffness: 350,
+            damping: 30,
+          }
+        },
+        exit: {
+          opacity: 0,
+          scale: 0.95,
+          transition: { duration: 0.2 },
+        }
+      }}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+    >
+      <div className="relative" ref={hitboxRef}>
+        <BrowserHeader 
+          title={args?.task || "Browser Session"} 
+          isConnected={isConnected}
+          isLoading={isLoading}
+          onToggleFullscreen={() => {
+            if (sessionUrl) {
+              setArtifact(current => ({
+                ...current,
+                isVisible: true,
+                kind: 'browser',
+                title: args?.task || "Browser Session", 
+                content: sessionUrl,
+                metadata: {
+                  sessionId: session.sessionId,
+                  instanceId,
+                  steps: session.steps,
+                  isLoading: session.isLoading
+                }
+              }));
+            }
+          }}
+        />
       </div>
-    </div>
+
+      <div className="flex-1">
+        {sessionUrl ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className={cn(
+              "w-full rounded-lg overflow-hidden",
+              {
+                "aspect-video": isInline,
+                "h-[calc(100vh-57px)]": !isInline
+              }
+            )}
+          >
+            <iframe
+              src={sessionUrl}
+              className="w-full h-full"
+              sandbox="allow-same-origin allow-scripts"
+              allow="clipboard-read; clipboard-write"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              title={args?.task || "Browser Session"}
+            />
+          </motion.div>
+        ) : (
+          <div className="w-full aspect-video flex items-center justify-center border border-gray-200 rounded-lg dark:border-zinc-700 bg-muted">
+            <div className="text-muted-foreground">
+              {session.isLoading ? 'Loading browser session...' : 'No content available'}
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
   );
-} 
+}
 
 export function BrowserToolComponent({ toolInvocation, isReadonly }: { 
-    toolInvocation: any;
-    isReadonly: boolean;
-  }) {
-    const { args, state, result } = toolInvocation;
-    return (
-      <BrowserPreview 
-        args={args} 
-        result={state === 'result' ? result : undefined} 
-        isReadonly={isReadonly} 
-      />
-    );
-  }
+  toolInvocation: any;
+  isReadonly: boolean;
+}) {
+  const { args, state, result } = toolInvocation;
+  return (
+    <BrowserPreview 
+      args={args} 
+      result={state === 'result' ? result : undefined} 
+      isReadonly={isReadonly} 
+    />
+  );
+}

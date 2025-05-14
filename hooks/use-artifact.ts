@@ -2,7 +2,7 @@
 
 import useSWR from 'swr';
 import { UIArtifact } from '@/components/artifact';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef, useEffect } from 'react';
 
 export const initialArtifactData: UIArtifact = {
   documentId: 'init',
@@ -43,6 +43,12 @@ export function useArtifact() {
     },
   );
 
+  // Keep track of browser session state
+  const browserSessionRef = useRef<{
+    sessionId?: string;
+    instanceId?: string;
+  }>({});
+
   const artifact = useMemo(() => {
     if (!localArtifact) return initialArtifactData;
     return localArtifact;
@@ -52,12 +58,17 @@ export function useArtifact() {
     (updaterFn: UIArtifact | ((currentArtifact: UIArtifact) => UIArtifact)) => {
       setLocalArtifact((currentArtifact) => {
         const artifactToUpdate = currentArtifact || initialArtifactData;
+        const newArtifact = typeof updaterFn === 'function' ? updaterFn(artifactToUpdate) : updaterFn;
 
-        if (typeof updaterFn === 'function') {
-          return updaterFn(artifactToUpdate);
+        // If this is a browser artifact, preserve the session info
+        if (newArtifact.kind === 'browser' && newArtifact.metadata) {
+          browserSessionRef.current = {
+            sessionId: newArtifact.metadata.sessionId,
+            instanceId: newArtifact.metadata.instanceId
+          };
         }
 
-        return updaterFn;
+        return newArtifact;
       });
     },
     [setLocalArtifact],
@@ -72,6 +83,17 @@ export function useArtifact() {
         fallbackData: null,
       },
     );
+
+  // Preserve browser session state in metadata
+  useEffect(() => {
+    if (artifact.kind === 'browser' && browserSessionRef.current.sessionId) {
+      setLocalArtifactMetadata((current: any) => ({
+        ...current,
+        sessionId: browserSessionRef.current.sessionId,
+        instanceId: browserSessionRef.current.instanceId
+      }));
+    }
+  }, [artifact.kind, setLocalArtifactMetadata]);
 
   return useMemo(
     () => ({

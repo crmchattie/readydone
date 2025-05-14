@@ -53,40 +53,55 @@ interface InitializeParameters<M = any> {
   setMetadata: Dispatch<SetStateAction<M>>;
 }
 
-type ArtifactConfig<T extends string, M = any> = {
-  kind: T;
+export interface ArtifactConfig<K extends string, M = any> {
+  kind: K;
   description: string;
-  content: ComponentType<ArtifactContent<M>>;
-  actions: Array<ArtifactAction<M>>;
-  toolbar: ArtifactToolbarItem[];
-  initialize?: (parameters: InitializeParameters<M>) => void;
-  onStreamPart: (args: {
-    setMetadata: Dispatch<SetStateAction<M>>;
-    setArtifact: Dispatch<SetStateAction<UIArtifact>>;
-    streamPart: DataStreamDelta;
-  }) => void;
-};
+  content: ComponentType<any>;
+  actions: Array<any>;
+  toolbar: Array<any>;
+  onStreamPart?: (args: { streamPart: any; setArtifact: any }) => void;
+  initialize?: (args: { documentId: string; setMetadata: (metadata: M) => void }) => void;
+  cleanup?: (args: { metadata: M }) => boolean;
+}
 
-export class Artifact<T extends string, M = any> {
-  readonly kind: T;
-  readonly description: string;
-  readonly content: ComponentType<ArtifactContent<M>>;
-  readonly actions: Array<ArtifactAction<M>>;
-  readonly toolbar: ArtifactToolbarItem[];
-  readonly initialize?: (parameters: InitializeParameters) => void;
-  readonly onStreamPart: (args: {
-    setMetadata: Dispatch<SetStateAction<M>>;
-    setArtifact: Dispatch<SetStateAction<UIArtifact>>;
-    streamPart: DataStreamDelta;
-  }) => void;
+export class Artifact<K extends string = string, M = any> {
+  private config: ArtifactConfig<K, M>;
 
-  constructor(config: ArtifactConfig<T, M>) {
-    this.kind = config.kind;
-    this.description = config.description;
-    this.content = config.content;
-    this.actions = config.actions || [];
-    this.toolbar = config.toolbar || [];
-    this.initialize = config.initialize || (async () => ({}));
-    this.onStreamPart = config.onStreamPart;
+  constructor(config: ArtifactConfig<K, M>) {
+    this.config = config;
+  }
+
+  get kind() {
+    return this.config.kind;
+  }
+
+  get description() {
+    return this.config.description;
+  }
+
+  get content() {
+    return this.config.content;
+  }
+
+  get actions() {
+    return this.config.actions;
+  }
+
+  get toolbar() {
+    return this.config.toolbar;
+  }
+
+  get onStreamPart() {
+    return this.config.onStreamPart;
+  }
+
+  get initialize() {
+    return this.config.initialize;
+  }
+
+  get cleanup() {
+    return this.config.cleanup;
   }
 }
+
+export type ArtifactKind = 'text' | 'code' | 'image' | 'sheet' | 'browser';

@@ -7,9 +7,8 @@ export async function POST(request: Request) {
     const result = await createSession(timezone, contextId, { keepAlive });
     return NextResponse.json({ success: true, result });
   } catch (error) {
-    console.error('Error creating session:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to create session' },
+      { success: false, error: error instanceof Error ? error.message : 'Failed to create session' },
       { status: 500 }
     );
   }
@@ -22,7 +21,7 @@ export async function DELETE(request: Request) {
     
     if (!sessionId) {
       return NextResponse.json(
-        { error: 'Session ID is required' },
+        { success: false, error: 'Session ID is required' },
         { status: 400 }
       );
     }
@@ -30,9 +29,8 @@ export async function DELETE(request: Request) {
     await endSession(sessionId);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error ending session:', error);
     return NextResponse.json(
-      { error: 'Failed to end session' },
+      { success: false, error: error instanceof Error ? error.message : 'Failed to end session' },
       { status: 500 }
     );
   }

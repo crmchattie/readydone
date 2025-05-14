@@ -1,7 +1,6 @@
 import { DataStreamWriter, tool } from 'ai';
 import { Session } from 'next-auth';
 import { z } from 'zod';
-import { createSession, endSession } from '@/lib/browserbase/service';
 import { BrowserResult } from '@/lib/db/types';
 
 // Debug helper
@@ -17,7 +16,7 @@ interface BrowserToolProps {
 
 export const runBrowser = ({ session, dataStream, chatId }: BrowserToolProps) =>
   tool({
-    description: 'Use a browser to accomplish a task',
+    description: 'Use a browser to accomplish a task. Note: This tool only STARTS the browser task - it does not wait for completion. The task will continue executing after this tool returns. Do not assume the task is complete when this tool call finishes.',
     parameters: z.object({
       task: z.string().describe('The task to accomplish'),
       url: z.string().url().optional().describe('The URL to start from'),
@@ -27,59 +26,21 @@ export const runBrowser = ({ session, dataStream, chatId }: BrowserToolProps) =>
     }),
     execute: async ({ task, url, variables, extractionSchema, maxAttempts }) => {
       debug('Starting browser task', { task, url });
-      let sessionId: string | undefined;
       
-      try {
-        // Create browser session
-        const browserSession = await createSession(
-          Intl.DateTimeFormat().resolvedOptions().timeZone
-        );
-        sessionId = browserSession.sessionId;
-
-        debug('Created browser session', { sessionId: browserSession.sessionId });
-
-        // Start the agent immediately
-        const agentResponse = await fetch('/api/browser/agent', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sessionId: browserSession.sessionId,
-            goal: task,
-            action: 'START'
-          })
-        });
-
-        if (!agentResponse.ok) {
-          const errorData = await agentResponse.json();
-          throw new Error(errorData.error || 'Failed to start browser agent');
-        }
-
-        const agentData = await agentResponse.json();
-        debug('Agent started successfully', agentData);
-
-        // Return with initial state and first step if available
-        return {
-          state: 'result' as const,
-          sessionId: browserSession.sessionId,
-          sessionUrl: browserSession.sessionUrl,
-          contextId: browserSession.contextId,
-          task,
-          steps: agentData.steps || [],
+      // Return initial configuration for the browser preview and explicitly indicate task is starting
+      return {
+        state: 'result' as const,
+        result: {
+          state: 'result',
+          message: 'Browser task has been initiated and is in progress. The task will continue executing in the background. Please wait for updates.',
+          steps: [],
           currentStep: 0,
-          extractedData: agentData.extraction || null,
-        };
-      } catch (error) {
-        debug('Error in browser tool', error);
-        if (sessionId) {
-          try {
-            await endSession(sessionId);
-          } catch (cleanupError) {
-            debug('Error cleaning up session', cleanupError);
-          }
-        }
-        throw error;
-      }
+          task,
+          url,
+          variables,
+          extractionSchema,
+          maxAttempts
+        } as BrowserResult
+      };
     },
   }); 
