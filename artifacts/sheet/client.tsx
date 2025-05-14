@@ -9,6 +9,8 @@ import {
 import { SpreadsheetEditor } from '@/components/sheet-editor';
 import { parse, unparse } from 'papaparse';
 import { toast } from 'sonner';
+import { UIArtifact } from '@/components/artifact';
+import { UseChatHelpers } from '@ai-sdk/react';
 
 type Metadata = any;
 
@@ -18,7 +20,7 @@ export const sheetArtifact = new Artifact<'sheet', Metadata>({
   initialize: async () => {},
   onStreamPart: ({ setArtifact, streamPart }) => {
     if (streamPart.type === 'sheet-delta') {
-      setArtifact((draftArtifact) => ({
+      setArtifact((draftArtifact: UIArtifact) => ({
         ...draftArtifact,
         content: streamPart.content as string,
         isVisible: true,
@@ -47,10 +49,10 @@ export const sheetArtifact = new Artifact<'sheet', Metadata>({
     {
       icon: <UndoIcon size={18} />,
       description: 'View Previous version',
-      onClick: ({ handleVersionChange }) => {
+      onClick: ({ handleVersionChange }: { handleVersionChange: (type: 'next' | 'prev' | 'toggle' | 'latest') => void }) => {
         handleVersionChange('prev');
       },
-      isDisabled: ({ currentVersionIndex }) => {
+      isDisabled: ({ currentVersionIndex }: { currentVersionIndex: number }) => {
         if (currentVersionIndex === 0) {
           return true;
         }
@@ -61,10 +63,10 @@ export const sheetArtifact = new Artifact<'sheet', Metadata>({
     {
       icon: <RedoIcon size={18} />,
       description: 'View Next version',
-      onClick: ({ handleVersionChange }) => {
+      onClick: ({ handleVersionChange }: { handleVersionChange: (type: 'next' | 'prev' | 'toggle' | 'latest') => void }) => {
         handleVersionChange('next');
       },
-      isDisabled: ({ isCurrentVersion }) => {
+      isDisabled: ({ isCurrentVersion }: { isCurrentVersion: boolean }) => {
         if (isCurrentVersion) {
           return true;
         }
@@ -75,7 +77,7 @@ export const sheetArtifact = new Artifact<'sheet', Metadata>({
     {
       icon: <CopyIcon />,
       description: 'Copy as .csv',
-      onClick: ({ content }) => {
+      onClick: ({ content }: { content: string }) => {
         const parsed = parse<string[]>(content, { skipEmptyLines: true });
 
         const nonEmptyRows = parsed.data.filter((row) =>
@@ -93,7 +95,7 @@ export const sheetArtifact = new Artifact<'sheet', Metadata>({
     {
       description: 'Format and clean data',
       icon: <SparklesIcon />,
-      onClick: ({ appendMessage }) => {
+      onClick: ({ appendMessage }: { appendMessage: UseChatHelpers['append'] }) => {
         appendMessage({
           role: 'user',
           content: 'Can you please format and clean the data?',
@@ -103,7 +105,7 @@ export const sheetArtifact = new Artifact<'sheet', Metadata>({
     {
       description: 'Analyze and visualize data',
       icon: <LineChartIcon />,
-      onClick: ({ appendMessage }) => {
+      onClick: ({ appendMessage }: { appendMessage: UseChatHelpers['append'] }) => {
         appendMessage({
           role: 'user',
           content:

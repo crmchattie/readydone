@@ -106,7 +106,7 @@ function PureArtifact({
         content: artifact.content
       };
     }
-  }, [artifact.isVisible, artifact.kind, artifact.metadata]);
+  }, [artifact.isVisible, artifact.kind, artifact.metadata, artifact.content]);
 
   // Cleanup effect
   useEffect(() => {

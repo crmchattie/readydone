@@ -21,7 +21,8 @@ const documentTypeLabels: Record<ArtifactKind, string> = {
   text: 'Documents',
   code: 'Code Files',
   sheet: 'Spreadsheets',
-  image: 'Images'
+  image: 'Images',
+  browser: 'Browser Sessions'
 };
 
 export function DocumentListPopup({ kind, isOpen, onClose }: DocumentListPopupProps) {

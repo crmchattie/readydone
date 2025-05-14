@@ -11,6 +11,12 @@ interface BrowserContentProps {
   content: string;
   isInline: boolean;
   status: 'streaming' | 'idle';
+  mode: 'edit' | 'diff';
+  isCurrentVersion: boolean;
+  currentVersionIndex: number;
+  getDocumentContentById: (index: number) => string;
+  onSaveContent: (content: string, debounce: boolean) => void;
+  isLoading: boolean;
   metadata?: {
     sessionId?: string;
     instanceId?: string;
@@ -24,7 +30,13 @@ export function BrowserContent({
   content,
   isInline,
   status,
-  metadata
+  metadata,
+  mode,
+  isCurrentVersion,
+  currentVersionIndex,
+  getDocumentContentById,
+  onSaveContent,
+  isLoading: isDocumentLoading
 }: BrowserContentProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { metadata: artifactMetadata } = useArtifact();
@@ -33,41 +45,49 @@ export function BrowserContent({
   const { session } = useBrowser(sessionMetadata?.instanceId || 'default');
 
   useEffect(() => {
-    if (!iframeRef.current) return;
+    const iframe = iframeRef.current;
+    if (!iframe) return;
 
     const handleLoad = () => {
       // Handle iframe load
+      if (content && isCurrentVersion) {
+        onSaveContent(content, true);
+      }
     };
 
     const handleError = (error: ErrorEvent) => {
       console.error('Browser iframe error:', error);
     };
 
-    iframeRef.current.addEventListener('load', handleLoad);
-    iframeRef.current.addEventListener('error', handleError as any);
+    iframe.addEventListener('load', handleLoad);
+    iframe.addEventListener('error', handleError as any);
 
     return () => {
-      iframeRef.current?.removeEventListener('load', handleLoad);
-      iframeRef.current?.removeEventListener('error', handleError as any);
+      iframe.removeEventListener('load', handleLoad);
+      iframe.removeEventListener('error', handleError as any);
     };
-  }, [content, status, sessionMetadata]);
+  }, [content, status, sessionMetadata, isCurrentVersion, onSaveContent]);
 
   useEffect(() => {
     return () => {
       if (!sessionMetadata?.instanceId) {
         // Clean up browser session
+        console.log('[BrowserContent] Cleaning up session');
       }
     };
   }, [session.sessionId, sessionMetadata]);
 
+  const displayContent = isCurrentVersion ? content : getDocumentContentById(currentVersionIndex);
+  const isLoading = isDocumentLoading || session.isLoading || status === 'streaming';
+
   return (
     <div className={cn(
-      "w-full h-full",
+      "size-full",
       {
         "h-full": !isInline
       }
     )}>
-      {content ? (
+      {displayContent ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -82,8 +102,8 @@ export function BrowserContent({
         >
           <iframe
             ref={iframeRef}
-            src={content}
-            className="w-full h-full"
+            src={displayContent}
+            className="size-full"
             sandbox="allow-same-origin allow-scripts"
             allow="clipboard-read; clipboard-write"
             loading="lazy"
@@ -104,7 +124,7 @@ export function BrowserContent({
           )}
         >
           <div className="text-muted-foreground">
-            {status === 'streaming' ? 'Loading browser session...' : 'No content available'}
+            {isLoading ? 'Loading browser session...' : 'No content available'}
           </div>
         </motion.div>
       )}

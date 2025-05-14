@@ -229,7 +229,7 @@ export function BrowserPreview({ result: initialResult, args, isReadonly, isInli
           >
             <iframe
               src={sessionUrl}
-              className="w-full h-full"
+              className="size-full"
               sandbox="allow-same-origin allow-scripts"
               allow="clipboard-read; clipboard-write"
               loading="lazy"

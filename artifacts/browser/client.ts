@@ -15,16 +15,24 @@ export const browserArtifact = new Artifact<'browser', BrowserMetadata>({
   content: BrowserContent,
   actions: [],
   toolbar: [],
-  onStreamPart: ({ streamPart, setArtifact }) => {
+  onStreamPart: ({ streamPart, setArtifact, setMetadata }) => {
     if (streamPart.type === 'text-delta') {
       setArtifact((draft: UIArtifact) => ({
         ...draft,
         content: streamPart.content as string,
+        isVisible: true,
+        status: 'streaming',
       }));
     }
   },
-  initialize: ({ documentId, setMetadata }) => {
+  initialize: async ({ documentId, setMetadata }) => {
     console.log('[BrowserArtifact] Initializing', { documentId });
+    setMetadata({
+      sessionId: undefined,
+      instanceId: undefined,
+      steps: [],
+      isLoading: false
+    });
   },
   cleanup: ({ metadata }) => {
     // Don't cleanup if we have session info

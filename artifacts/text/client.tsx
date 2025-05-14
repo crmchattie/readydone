@@ -13,9 +13,37 @@ import {
 import { Suggestion } from '@/lib/db/schema';
 import { toast } from 'sonner';
 import { getSuggestions } from '../actions';
+import { DataStreamDelta } from '@/components/data-stream-handler';
+import { UIArtifact } from '@/components/artifact';
+import { Dispatch, SetStateAction } from 'react';
 
 interface TextArtifactMetadata {
   suggestions: Array<Suggestion>;
+}
+
+interface StreamPart {
+  type: 'suggestion' | 'text-delta';
+  content: Suggestion | string;
+}
+
+interface DraftArtifact extends UIArtifact {
+  content: string;
+  isVisible: boolean;
+  status: 'streaming' | 'idle';
+}
+
+interface ActionContext {
+  handleVersionChange: (type: 'next' | 'prev' | 'toggle' | 'latest') => void;
+  currentVersionIndex: number;
+  isCurrentVersion: boolean;
+  content: string;
+  appendMessage: (message: { role: 'user'; content: string }) => void;
+}
+
+interface StreamPartContext {
+  streamPart: StreamPart;
+  setMetadata: (metadata: TextArtifactMetadata) => void;
+  setArtifact: Dispatch<SetStateAction<DraftArtifact>>;
 }
 
 export const textArtifact = new Artifact<'text', TextArtifactMetadata>({
@@ -28,15 +56,11 @@ export const textArtifact = new Artifact<'text', TextArtifactMetadata>({
       suggestions,
     });
   },
-  onStreamPart: ({ streamPart, setMetadata, setArtifact }) => {
+  onStreamPart: ({ streamPart, setMetadata, setArtifact }: StreamPartContext) => {
     if (streamPart.type === 'suggestion') {
-      setMetadata((metadata) => {
-        return {
-          suggestions: [
-            ...metadata.suggestions,
-            streamPart.content as Suggestion,
-          ],
-        };
+      const suggestion = streamPart.content as Suggestion;
+      setMetadata({
+        suggestions: [suggestion],
       });
     }
 
@@ -103,10 +127,10 @@ export const textArtifact = new Artifact<'text', TextArtifactMetadata>({
     {
       icon: <ClockRewind size={18} />,
       description: 'View changes',
-      onClick: ({ handleVersionChange }) => {
+      onClick: ({ handleVersionChange }: ActionContext) => {
         handleVersionChange('toggle');
       },
-      isDisabled: ({ currentVersionIndex, setMetadata }) => {
+      isDisabled: ({ currentVersionIndex }: ActionContext) => {
         if (currentVersionIndex === 0) {
           return true;
         }
@@ -117,10 +141,10 @@ export const textArtifact = new Artifact<'text', TextArtifactMetadata>({
     {
       icon: <UndoIcon size={18} />,
       description: 'View Previous version',
-      onClick: ({ handleVersionChange }) => {
+      onClick: ({ handleVersionChange }: ActionContext) => {
         handleVersionChange('prev');
       },
-      isDisabled: ({ currentVersionIndex }) => {
+      isDisabled: ({ currentVersionIndex }: ActionContext) => {
         if (currentVersionIndex === 0) {
           return true;
         }
@@ -131,10 +155,10 @@ export const textArtifact = new Artifact<'text', TextArtifactMetadata>({
     {
       icon: <RedoIcon size={18} />,
       description: 'View Next version',
-      onClick: ({ handleVersionChange }) => {
+      onClick: ({ handleVersionChange }: ActionContext) => {
         handleVersionChange('next');
       },
-      isDisabled: ({ isCurrentVersion }) => {
+      isDisabled: ({ isCurrentVersion }: ActionContext) => {
         if (isCurrentVersion) {
           return true;
         }
@@ -145,7 +169,7 @@ export const textArtifact = new Artifact<'text', TextArtifactMetadata>({
     {
       icon: <CopyIcon size={18} />,
       description: 'Copy to clipboard',
-      onClick: ({ content }) => {
+      onClick: ({ content }: ActionContext) => {
         navigator.clipboard.writeText(content);
         toast.success('Copied to clipboard!');
       },
@@ -155,7 +179,7 @@ export const textArtifact = new Artifact<'text', TextArtifactMetadata>({
     {
       icon: <PenIcon />,
       description: 'Add final polish',
-      onClick: ({ appendMessage }) => {
+      onClick: ({ appendMessage }: ActionContext) => {
         appendMessage({
           role: 'user',
           content:
@@ -166,7 +190,7 @@ export const textArtifact = new Artifact<'text', TextArtifactMetadata>({
     {
       icon: <MessageIcon />,
       description: 'Request suggestions',
-      onClick: ({ appendMessage }) => {
+      onClick: ({ appendMessage }: ActionContext) => {
         appendMessage({
           role: 'user',
           content:

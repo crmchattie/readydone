@@ -2,13 +2,15 @@ import { Artifact } from '@/components/create-artifact';
 import { CopyIcon, RedoIcon, UndoIcon } from '@/components/icons';
 import { ImageEditor } from '@/components/image-editor';
 import { toast } from 'sonner';
+import { UIArtifact } from '@/components/artifact';
+import { DataStreamDelta } from '@/components/data-stream-handler';
 
 export const imageArtifact = new Artifact({
   kind: 'image',
   description: 'Useful for image generation',
-  onStreamPart: ({ streamPart, setArtifact }) => {
+  onStreamPart: ({ streamPart, setArtifact }: { streamPart: DataStreamDelta; setArtifact: (updater: (draft: UIArtifact) => UIArtifact) => void }) => {
     if (streamPart.type === 'image-delta') {
-      setArtifact((draftArtifact) => ({
+      setArtifact((draftArtifact: UIArtifact) => ({
         ...draftArtifact,
         content: streamPart.content as string,
         isVisible: true,
@@ -21,10 +23,10 @@ export const imageArtifact = new Artifact({
     {
       icon: <UndoIcon size={18} />,
       description: 'View Previous version',
-      onClick: ({ handleVersionChange }) => {
+      onClick: ({ handleVersionChange }: { handleVersionChange: (type: 'next' | 'prev' | 'toggle' | 'latest') => void }) => {
         handleVersionChange('prev');
       },
-      isDisabled: ({ currentVersionIndex }) => {
+      isDisabled: ({ currentVersionIndex }: { currentVersionIndex: number }) => {
         if (currentVersionIndex === 0) {
           return true;
         }
@@ -35,10 +37,10 @@ export const imageArtifact = new Artifact({
     {
       icon: <RedoIcon size={18} />,
       description: 'View Next version',
-      onClick: ({ handleVersionChange }) => {
+      onClick: ({ handleVersionChange }: { handleVersionChange: (type: 'next' | 'prev' | 'toggle' | 'latest') => void }) => {
         handleVersionChange('next');
       },
-      isDisabled: ({ isCurrentVersion }) => {
+      isDisabled: ({ isCurrentVersion }: { isCurrentVersion: boolean }) => {
         if (isCurrentVersion) {
           return true;
         }
@@ -49,7 +51,7 @@ export const imageArtifact = new Artifact({
     {
       icon: <CopyIcon size={18} />,
       description: 'Copy image to clipboard',
-      onClick: ({ content }) => {
+      onClick: ({ content }: { content: string }) => {
         const img = new Image();
         img.src = `data:image/png;base64,${content}`;
 

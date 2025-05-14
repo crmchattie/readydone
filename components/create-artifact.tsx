@@ -59,7 +59,7 @@ export interface ArtifactConfig<K extends string, M = any> {
   content: ComponentType<any>;
   actions: Array<any>;
   toolbar: Array<any>;
-  onStreamPart?: (args: { streamPart: any; setArtifact: any }) => void;
+  onStreamPart?: (args: { streamPart: any; setArtifact: any; setMetadata: (metadata: M) => void }) => void;
   initialize?: (args: { documentId: string; setMetadata: (metadata: M) => void }) => void;
   cleanup?: (args: { metadata: M }) => boolean;
 }

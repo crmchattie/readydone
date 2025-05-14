@@ -15,6 +15,8 @@ import {
   ConsoleOutput,
   ConsoleOutputContent,
 } from '@/components/console';
+import { UIArtifact } from '@/components/artifact';
+import { ArtifactActionContext, ArtifactToolbarContext } from '@/components/create-artifact';
 
 const OUTPUT_HANDLERS = {
   matplotlib: `
@@ -77,7 +79,7 @@ export const codeArtifact = new Artifact<'code', Metadata>({
   },
   onStreamPart: ({ streamPart, setArtifact }) => {
     if (streamPart.type === 'code-delta') {
-      setArtifact((draftArtifact) => ({
+      setArtifact((draftArtifact: UIArtifact) => ({
         ...draftArtifact,
         content: streamPart.content as string,
         isVisible:
@@ -116,7 +118,7 @@ export const codeArtifact = new Artifact<'code', Metadata>({
       icon: <PlayIcon size={18} />,
       label: 'Run',
       description: 'Execute code',
-      onClick: async ({ content, setMetadata }) => {
+      onClick: async ({ content, setMetadata }: ArtifactActionContext<Metadata>) => {
         const runId = generateUUID();
         const outputContent: Array<ConsoleOutputContent> = [];
 
@@ -211,10 +213,10 @@ export const codeArtifact = new Artifact<'code', Metadata>({
     {
       icon: <UndoIcon size={18} />,
       description: 'View Previous version',
-      onClick: ({ handleVersionChange }) => {
+      onClick: ({ handleVersionChange }: ArtifactActionContext<Metadata>) => {
         handleVersionChange('prev');
       },
-      isDisabled: ({ currentVersionIndex }) => {
+      isDisabled: ({ currentVersionIndex }: ArtifactActionContext<Metadata>) => {
         if (currentVersionIndex === 0) {
           return true;
         }
@@ -225,10 +227,10 @@ export const codeArtifact = new Artifact<'code', Metadata>({
     {
       icon: <RedoIcon size={18} />,
       description: 'View Next version',
-      onClick: ({ handleVersionChange }) => {
+      onClick: ({ handleVersionChange }: ArtifactActionContext<Metadata>) => {
         handleVersionChange('next');
       },
-      isDisabled: ({ isCurrentVersion }) => {
+      isDisabled: ({ isCurrentVersion }: ArtifactActionContext<Metadata>) => {
         if (isCurrentVersion) {
           return true;
         }
@@ -239,7 +241,7 @@ export const codeArtifact = new Artifact<'code', Metadata>({
     {
       icon: <CopyIcon size={18} />,
       description: 'Copy code to clipboard',
-      onClick: ({ content }) => {
+      onClick: ({ content }: ArtifactActionContext<Metadata>) => {
         navigator.clipboard.writeText(content);
         toast.success('Copied to clipboard!');
       },
@@ -249,7 +251,7 @@ export const codeArtifact = new Artifact<'code', Metadata>({
     {
       icon: <MessageIcon />,
       description: 'Add comments',
-      onClick: ({ appendMessage }) => {
+      onClick: ({ appendMessage }: ArtifactToolbarContext) => {
         appendMessage({
           role: 'user',
           content: 'Add comments to the code snippet for understanding',
@@ -259,7 +261,7 @@ export const codeArtifact = new Artifact<'code', Metadata>({
     {
       icon: <LogsIcon />,
       description: 'Add logs',
-      onClick: ({ appendMessage }) => {
+      onClick: ({ appendMessage }: ArtifactToolbarContext) => {
         appendMessage({
           role: 'user',
           content: 'Add logs to the code snippet for debugging',
