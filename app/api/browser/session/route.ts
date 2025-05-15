@@ -1,10 +1,21 @@
 import { NextResponse } from 'next/server';
-import { createSession, endSession } from '@/lib/browserbase/service';
+import { createSession, endSession, saveBrowserDocument } from '@/lib/browserbase/service';
 
 export async function POST(request: Request) {
   try {
-    const { timezone, contextId, keepAlive } = await request.json();
+    const { timezone, contextId, keepAlive, title, chatId, documentId } = await request.json();
     const result = await createSession(timezone, contextId, { keepAlive });
+    
+    // Save browser session as document if title and chatId are provided
+    if (title && chatId) {
+      await saveBrowserDocument({
+        sessionId: result.sessionId,
+        title,
+        chatId,
+        documentId
+      });
+    }
+    
     return NextResponse.json({ success: true, result });
   } catch (error) {
     return NextResponse.json(

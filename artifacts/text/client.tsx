@@ -13,7 +13,6 @@ import {
 import { Suggestion } from '@/lib/db/schema';
 import { toast } from 'sonner';
 import { getSuggestions } from '../actions';
-import { DataStreamDelta } from '@/components/data-stream-handler';
 import { UIArtifact } from '@/components/artifact';
 import { Dispatch, SetStateAction } from 'react';
 

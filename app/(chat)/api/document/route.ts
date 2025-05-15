@@ -35,7 +35,7 @@ export async function GET(request: Request) {
       // Get all documents of a specific kind for the user
       const documents = await getDocumentsByKind({
         kind: kind as ArtifactKind,
-        userId: session.user.id
+        userId: session?.user?.id
       });
       return Response.json(documents, { status: 200 });
     } else {
@@ -90,7 +90,6 @@ export async function POST(request: Request) {
       content,
       title,
       kind,
-      userId: session.user.id,
       chatId: chatId,
     });
 

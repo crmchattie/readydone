@@ -4,19 +4,18 @@ import { useCallback, useEffect, useState, useRef } from "react";
 import { useAtom } from "jotai";
 import { browserStateAtom, updateBrowserState } from "../lib/browserbase/store";
 import { 
-  createBrowserSession,
   endBrowserSession,
-  executeBrowserStep,
-  getNextStep
 } from "../lib/browserbase/client";
 import { BrowserStep } from "@/lib/db/types";
 
 // Debug helper
 const debug = (message: string, data?: any) => {
-  console.debug(`[useBrowser] ${message}`, data ? JSON.stringify(data, null, 2) : '');
+  console.log(`[useBrowser] ${message}`, data ? JSON.stringify(data, null, 2) : '');
 };
 
-export function useBrowser(instanceId: string) {
+export function useBrowser(instanceId: string, task?: string, chatId?: string, documentId?: string) {
+  debug('useBrowser hook called', { instanceId, task, chatId, documentId });
+  
   const [session, setSession] = useAtom(browserStateAtom(instanceId));
   const [isClosing, setIsClosing] = useState(false);
   const isCreatingSession = useRef(false);
@@ -26,6 +25,8 @@ export function useBrowser(instanceId: string) {
   useEffect(() => {
     debug('Browser state changed', {
       instanceId,
+      chatId,
+      documentId,
       sessionId: session.sessionId,
       sessionUrl: session.sessionUrl,
       isLoading: session.isLoading,
@@ -33,7 +34,7 @@ export function useBrowser(instanceId: string) {
       isClosing,
       preserveSession: preserveSession.current
     });
-  }, [session, instanceId, isClosing]);
+  }, [session, instanceId, chatId, isClosing]);
 
   // Store session info when it becomes available
   useEffect(() => {
@@ -92,30 +93,33 @@ export function useBrowser(instanceId: string) {
   };
 
   const createSession = useCallback(async () => {
-    debug('Creating session', { instanceId });
+    debug('Creating session', { instanceId, task, chatId });
     try {
       const response = await fetch('/api/browser/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          title: task,
+          chatId,
+          documentId
         })
       });
       
       const data = await response.json();
-      debug('Session creation response', { data, instanceId });
+      debug('Session creation response', { data, instanceId, chatId });
       
       if (!data.success) throw new Error(data.error);
       
       const { sessionId, sessionUrl, contextId } = data.result;
       
-      debug('Session created successfully', { sessionId, sessionUrl, contextId, instanceId });
+      debug('Session created successfully', { sessionId, sessionUrl, contextId, instanceId, chatId });
       return { sessionId, sessionUrl, contextId };
     } catch (error) {
-      debug('Error creating session', { error, instanceId });
+      debug('Error creating session', { error, instanceId, chatId });
       throw error;
     }
-  }, [instanceId]);
+  }, [instanceId, task, chatId]);
 
   const startAgent = useCallback(async (sessionId: string, goal: string) => {
     debug('Starting agent', { sessionId, goal });
@@ -208,35 +212,24 @@ export function useBrowser(instanceId: string) {
       isCreatingSession.current = true;
       debug('Setting initial loading state', { instanceId });
       
-      await new Promise(resolve => setTimeout(resolve, 0)); // Ensure state update
-      
-      setSession(prev => {
-        const updated = {
-          ...prev,
-          isLoading: true,
-          error: undefined
-        };
-        debug('Updated loading state', { previous: prev, updated, instanceId });
-        return updated;
-      });
+      setSession(prev => ({
+        ...prev,
+        isLoading: true,
+        error: undefined
+      }));
 
       // Create session
       const { sessionId, sessionUrl, contextId } = await createSession();
       debug('Setting session state', { sessionId, sessionUrl, contextId, instanceId });
       
-      await new Promise(resolve => setTimeout(resolve, 0)); // Ensure state update
-      
-      setSession(prev => {
-        const updated = updateBrowserState.setSession(prev, sessionId, sessionUrl, contextId);
-        debug('Updated session state', { 
-          previous: prev, 
-          updated,
-          hasSessionUrl: !!updated.sessionUrl,
-          sessionUrl: updated.sessionUrl,
-          instanceId
-        });
-        return updated;
-      });
+      setSession(prev => ({
+        ...prev,
+        sessionId,
+        sessionUrl,
+        contextId,
+        isLoading: true,
+        error: undefined
+      }));
 
       // Start agent
       const { result: firstStep, extraction, done } = await startAgent(sessionId, task);
@@ -250,28 +243,16 @@ export function useBrowser(instanceId: string) {
         instanceId
       });
 
-      await new Promise(resolve => setTimeout(resolve, 0)); // Ensure state update
-      
-      setSession(prev => {
-        const updated = {
-          ...prev,
-          sessionId,
-          sessionUrl, // Ensure URL is preserved
-          contextId,
-          steps: [completedFirstStep],
-          currentStep: 0,
-          extractedData: extraction || null,
-          isLoading: !done
-        };
-        debug('Updated state with first step', {
-          previous: prev,
-          updated,
-          hasSessionUrl: !!updated.sessionUrl,
-          sessionUrl: updated.sessionUrl,
-          instanceId
-        });
-        return updated;
-      });
+      setSession(prev => ({
+        ...prev,
+        sessionId,
+        sessionUrl,
+        contextId,
+        steps: [completedFirstStep],
+        currentStep: 0,
+        extractedData: extraction || null,
+        isLoading: !done
+      }));
 
       // If not done, get and execute next steps
       if (!done) {
@@ -280,11 +261,12 @@ export function useBrowser(instanceId: string) {
             // Get next step with current steps
             const { result: nextStep, done } = await getNextStep(sessionId, task, previousSteps);
             if (done) {
-              debug('All steps completed', { 
-                sessionUrl: session.sessionUrl,
-                stepsCount: previousSteps.length 
-              });
-              setSession(prev => ({ ...prev, isLoading: false }));
+              debug('All steps completed', { sessionUrl: session.sessionUrl });
+              setSession(prev => ({ 
+                ...prev, 
+                isLoading: false,
+                sessionUrl: prev.sessionUrl
+              }));
               return;
             }
 
@@ -301,38 +283,21 @@ export function useBrowser(instanceId: string) {
             const completedStep = { ...executedStep, status: 'completed' as const };
             
             // Update state with the completed step
-            const updatedSteps = [...previousSteps, completedStep];
-            setSession(prev => {
-              const updated = {
-                ...prev,
-                steps: updatedSteps,
-                currentStep: prev.currentStep + 1,
-                extractedData: extraction || prev.extractedData,
-                isLoading: !stepDone
-              };
-              debug('Updated state with next step', {
-                previous: prev,
-                updated,
-                hasSessionUrl: !!updated.sessionUrl,
-                sessionUrl: updated.sessionUrl
-              });
-              return updated;
-            });
+            setSession(prev => ({
+              ...prev,
+              steps: [...previousSteps, completedStep],
+              currentStep: prev.currentStep + 1,
+              extractedData: extraction || prev.extractedData,
+              isLoading: !stepDone,
+              sessionUrl: prev.sessionUrl
+            }));
 
             // Continue if not done
             if (!stepDone) {
-              await executeNextStep(updatedSteps);
+              await executeNextStep([...previousSteps, completedStep]);
             }
           } catch (error) {
-            debug('Error executing next step', { 
-              error: error instanceof Error ? error.message : 'Unknown error',
-              sessionUrl: session.sessionUrl // Verify URL is still present
-            });
-            setSession(prev => ({
-              ...prev,
-              isLoading: false,
-              error: error instanceof Error ? error : new Error('Failed to execute step')
-            }));
+            debug('Error executing next step', { error });
             throw error;
           }
         };
@@ -342,14 +307,12 @@ export function useBrowser(instanceId: string) {
 
       return { sessionId, sessionUrl, contextId, firstStep, extraction };
     } catch (error) {
-      debug('Error executing task', { 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        sessionUrl: session.sessionUrl // Verify URL is still present
-      });
+      debug('Error executing task', { error });
       setSession(prev => ({
         ...prev,
         error: error instanceof Error ? error : new Error('Failed to execute task'),
-        isLoading: false
+        isLoading: false,
+        sessionUrl: prev.sessionUrl
       }));
       throw error;
     } finally {
@@ -430,6 +393,7 @@ export function useBrowser(instanceId: string) {
     execute,
     executeStep,
     getNextStep,
-    close
+    close,
+    setSession
   };
 } 

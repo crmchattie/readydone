@@ -47,9 +47,11 @@ export interface BrowserResult {
   contextId?: string;
   steps: BrowserStep[];
   currentStep: number;
+  task: string;
+  chatId: string;
+  documentId: string;
   extractedData?: any;
   error?: Error;
-  task?: string;
   url?: string;
   variables?: Record<string, string>;
   extractionSchema?: Record<string, any>;

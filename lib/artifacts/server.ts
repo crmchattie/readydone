@@ -61,7 +61,6 @@ export function createDocumentHandler<T extends ArtifactKind>(config: {
           title: args.title,
           content: draftContent,
           kind: config.kind,
-          userId: args.session.user.id,
           chatId: args.chatId
         });
       }
@@ -83,7 +82,6 @@ export function createDocumentHandler<T extends ArtifactKind>(config: {
           title: args.document.title,
           content: draftContent,
           kind: config.kind,
-          userId: args.session.user.id,
           chatId: args.chatId
         });
       }

@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
       const documents = await getDocumentsByKind({
         kind: kind as any,
-        userId: session.user.id,
+        userId: session?.user?.id
       });
 
       return Response.json(documents, { status: 200 });
@@ -30,7 +30,6 @@ export async function GET(request: Request) {
     if (chatId) {
       const documents = await getDocumentsByChatId({
         chatId,
-        userId: session.user.id,
       });
 
       return Response.json(documents, { status: 200 });

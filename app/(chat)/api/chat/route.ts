@@ -168,7 +168,7 @@ export async function POST(request: Request) {
             sendEmail: sendEmail({ chatId: id, messages, userId: session.user!.id! }),
             findPhone: findPhone,
             callPhone: callPhone({ chatId: id, messages}),
-            useBrowser: runBrowser({ session, dataStream, chatId: id })
+            useBrowser: runBrowser({ chatId: id })
           },
           onFinish: async ({ response }) => {
             debug('Stream finished, processing response');

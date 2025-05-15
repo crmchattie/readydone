@@ -293,14 +293,12 @@ export async function saveDocument({
   title,
   kind,
   content,
-  userId,
   chatId,
 }: {
   id: string;
   title: string;
   kind: ArtifactKind;
   content: string;
-  userId: string;
   chatId: string;
 }) {
   try {
@@ -1414,7 +1412,7 @@ export async function shouldCreateNewSummary(chatId: string): Promise<boolean> {
 
 export async function getDocumentsByKind({
   kind,
-  userId,
+  userId
 }: {
   kind: ArtifactKind;
   userId: string;
@@ -1429,7 +1427,13 @@ export async function getDocumentsByKind({
       createdAt: document.createdAt,
     })
     .from(document)
-    .where(eq(document.kind, kind))
+    .innerJoin(chatParticipant, eq(document.chatId, chatParticipant.chatId))
+    .where(
+      and(
+        eq(document.kind, kind),
+        eq(chatParticipant.userId, userId)
+      )
+    )
     .orderBy(desc(document.createdAt));
 
   return documents;
@@ -1437,10 +1441,8 @@ export async function getDocumentsByKind({
 
 export async function getDocumentsByChatId({
   chatId,
-  userId,
 }: {
   chatId: string;
-  userId: string;
 }) {
   try {
     // Get all documents associated with the chat

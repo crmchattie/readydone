@@ -1,21 +1,14 @@
-import { DataStreamWriter, tool } from 'ai';
-import { Session } from 'next-auth';
+import { tool } from 'ai';
 import { z } from 'zod';
 import { BrowserResult } from '@/lib/db/types';
-
-// Debug helper
-const debug = (message: string, data?: any) => {
-  console.debug(`[Browser Tool] ${message}`, data ? data : '');
-};
+import { generateUUID } from '@/lib/utils';
 
 interface BrowserToolProps {
-  session: Session;
-  dataStream: DataStreamWriter;
   chatId: string;
 }
 
-export const runBrowser = ({ session, dataStream, chatId }: BrowserToolProps) =>
-  tool({
+export const runBrowser = ({ chatId }: BrowserToolProps) => {
+  return tool({
     description: 'Use a browser to accomplish a task. Note: This tool only STARTS the browser task - it does not wait for completion. The task will continue executing after this tool returns. Do not assume the task is complete when this tool call finishes.',
     parameters: z.object({
       task: z.string().describe('The task to accomplish'),
@@ -25,10 +18,7 @@ export const runBrowser = ({ session, dataStream, chatId }: BrowserToolProps) =>
       maxAttempts: z.number().optional().describe('Maximum number of attempts'),
     }),
     execute: async ({ task, url, variables, extractionSchema, maxAttempts }) => {
-      debug('Starting browser task', { task, url });
-      
-      // Return initial configuration for the browser preview and explicitly indicate task is starting
-      return {
+      const result = {
         state: 'result' as const,
         result: {
           state: 'result',
@@ -36,11 +26,16 @@ export const runBrowser = ({ session, dataStream, chatId }: BrowserToolProps) =>
           steps: [],
           currentStep: 0,
           task,
+          chatId,
+          documentId: generateUUID(),
           url,
           variables,
           extractionSchema,
           maxAttempts
         } as BrowserResult
       };
+      
+      return result;
     },
-  }); 
+  });
+}; 

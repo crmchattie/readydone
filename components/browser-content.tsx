@@ -22,6 +22,7 @@ interface BrowserContentProps {
     instanceId?: string;
     steps?: any[];
     isLoading?: boolean;
+    isRecording?: boolean;
   };
 }
 

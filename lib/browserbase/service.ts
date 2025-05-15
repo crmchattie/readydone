@@ -4,6 +4,8 @@ import { Stagehand } from "@browserbasehq/stagehand";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import { CoreMessage, generateObject, UserContent } from "ai";
+import { generateUUID } from '../utils';
+import { saveDocument } from '../db/queries';
 
 // Initialize Browserbase client
 const bb = new Browserbase({
@@ -298,11 +300,39 @@ export async function createSession(timezone?: string, contextId?: string, optio
   };
 }
 
+export async function saveBrowserDocument({
+  sessionId,
+  title,
+  chatId,
+  documentId
+}: {
+  sessionId: string;
+  title: string;
+  chatId: string;
+  documentId: string;
+}) {
+  return await saveDocument({
+    id: documentId,
+    title,
+    kind: 'browser',
+    content: sessionId, // Store just the session ID
+    chatId,
+  });
+}
+
 export async function endSession(sessionId: string) {
   await bb.sessions.update(sessionId, {
     projectId: process.env.BROWSERBASE_PROJECT_ID!,
     status: "REQUEST_RELEASE",
   });
+}
+
+export async function getRecordingUrl(sessionId: string) {
+  const debugInfo = await bb.sessions.debug(sessionId);
+  if (!debugInfo.debuggerFullscreenUrl) {
+    throw new Error('Recording not available');
+  }
+  return debugInfo.debuggerFullscreenUrl;
 }
 
 export async function executeStep(sessionId: string, step: BrowserStep) {

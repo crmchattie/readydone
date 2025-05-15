@@ -165,7 +165,7 @@ async function getCombinedContext({ chatId, userId }: { chatId: string; userId: 
   try {
     const [summary, documents] = await Promise.all([
       getLatestChatSummary({ chatId }),
-      getDocumentsByChatId({ chatId, userId })
+      getDocumentsByChatId({ chatId })
     ]);
 
     let contextString = '';
