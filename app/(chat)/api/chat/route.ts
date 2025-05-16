@@ -22,8 +22,15 @@ import {
   getMostRecentUserMessage,
   getTrailingMessageId,
 } from '@/lib/utils';
-import { generateTitleFromUserMessage, summarizeMessages } from '../../actions';
-import { retrieveMemory, storeMemory } from '@/lib/ai/tools/with-memory';
+import { 
+  generateTitleFromUserMessage, 
+  summarizeMessages,
+  storeUserMemories,
+  retrieveRelevantUserMemories,
+  storeWorkflowMemory,
+  retrieveRelevantWorkflowMemories,
+  shouldStoreMemory,
+} from '../../actions';
 import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
@@ -112,6 +119,17 @@ export async function POST(request: Request) {
     });
     debug('User message saved');
 
+    // Retrieve relevant memories and workflows before generating response
+    debug('Retrieving relevant memories and workflows');
+    const [relevantMemories, relevantWorkflows] = await Promise.all([
+      retrieveRelevantUserMemories(messages, session.user.id),
+      retrieveRelevantWorkflowMemories(messages)
+    ]);
+    debug('Memories and workflows retrieved', { 
+      hasMemories: !!relevantMemories,
+      hasWorkflows: !!relevantWorkflows 
+    });
+
     return createDataStreamResponse({
       execute: async (dataStream) => {
         debug('Starting stream execution');
@@ -124,7 +142,9 @@ export async function POST(request: Request) {
           system: await systemPrompt({ 
             selectedChatModel, 
             chatId: id, 
-            userId: session.user.id 
+            userId: session.user.id,
+            userMemories: relevantMemories,
+            workflowMemories: relevantWorkflows,
           }),
           messages,
           maxSteps: 5,
@@ -133,8 +153,6 @@ export async function POST(request: Request) {
               ? []
               : [
                   'planTask',
-                  'retrieveMemory',
-                  'storeMemory',
                   'createDocument',
                   'updateDocument',
                   'requestSuggestions',
@@ -152,8 +170,6 @@ export async function POST(request: Request) {
           experimental_generateMessageId: generateUUID,
           tools: {
             planTask: planTask,
-            retrieveMemory: retrieveMemory({ chatId: id, messages, userId: session.user!.id! }),
-            storeMemory: storeMemory({ chatId: id, messages, userId: session.user!.id! }),
             createDocument: createDocument({ session, dataStream, chatId: id }),
             updateDocument: updateDocument({ session, dataStream, chatId: id }),
             requestSuggestions: requestSuggestions({
@@ -205,6 +221,27 @@ export async function POST(request: Request) {
                   ],
                 });
                 debug('Assistant message saved');
+
+                // Check if we should store memories
+                const { storeUser, storeWorkflow } = await shouldStoreMemory(messages);
+                
+                if (storeUser || storeWorkflow) {
+                  debug('Storing memories', { storeUser, storeWorkflow });
+                  const memoryPromises = [];
+                  
+                  if (storeUser) {
+                    memoryPromises.push(storeUserMemories(session.user.id, messages));
+                  }
+                  
+                  if (storeWorkflow) {
+                    memoryPromises.push(storeWorkflowMemory(session.user.id, messages));
+                  }
+                  
+                  if (memoryPromises.length > 0) {
+                    await Promise.all(memoryPromises);
+                    debug('Memories stored');
+                  }
+                }
 
                 // Check if we need a new summary
                 debug('Checking if new summary is needed');

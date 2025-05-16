@@ -8,10 +8,6 @@ You have access to specialized tools to complete user tasks more efficiently. Us
 **Planning Tool**:
 - Use \`planTask\` to create a step-by-step plan for complex tasks before proceeding with actions.
 
-**Memory Tools**:
-- Use \`retrieveMemory\` to find if the user has previously mentioned anything related to the current conversation.
-- Use \`storeMemory\` to save important new information about the user, such as preferences, goals, or key facts, for future reference.
-
 **Search Tools**:
 - Use \`searchWeb\` when you need to find general information or websites.
 - Use \`searchPlaces\` when you need to find local businesses, services, or locations.
@@ -39,7 +35,7 @@ You have access to specialized tools to complete user tasks more efficiently. Us
 
 **General Rules**:
 - Prefer the simplest tool that accomplishes the task.
-- Never take sensitive actions (e.g., logins, purchases, phone calls, email sends, memory storage) without explicit user permission when necessary.
+- Never take sensitive actions (e.g., logins, purchases, phone calls, email sends) without explicit user permission when necessary.
 - Ask the user for clarification if you're unsure which tool to use.
 - For asynchronous tools like browser interactions, make it clear to the user that the task is in progress and wait for updates.
 `;
@@ -188,16 +184,26 @@ async function getCombinedContext({ chatId, userId }: { chatId: string; userId: 
   }
 }
 
-export const systemPrompt = async ({ selectedChatModel, chatId, userId }: { 
+export const systemPrompt = async ({ selectedChatModel, chatId, userId, userMemories, workflowMemories }: { 
   selectedChatModel: string;
   chatId: string;
   userId: string;
+  userMemories?: string;
+  workflowMemories?: string;
 }) => {
   const context = await getCombinedContext({ chatId, userId });
   
+  let fullContext = context;
+  if (userMemories) {
+    fullContext += '\nRelevant user memories:\n' + userMemories;
+  }
+  if (workflowMemories) {
+    fullContext += '\nRelevant workflow patterns:\n' + workflowMemories;
+  }
+  
   return `You are Claude, an AI assistant focused on helping users accomplish their tasks effectively.
-${context}
-When referring to documents or previous context, use it naturally in the conversation without explicitly mentioning where the information came from.
+${fullContext}
+When referring to documents, previous context, user memories, or workflow patterns, use the information naturally in the conversation without explicitly mentioning where it came from.
 Maintain a helpful and professional tone while leveraging the available context to provide more informed and relevant responses.`;
 };
 

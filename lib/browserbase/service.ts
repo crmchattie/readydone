@@ -327,12 +327,20 @@ export async function endSession(sessionId: string) {
   });
 }
 
-export async function getRecordingUrl(sessionId: string) {
-  const debugInfo = await bb.sessions.debug(sessionId);
-  if (!debugInfo.debuggerFullscreenUrl) {
-    throw new Error('Recording not available');
+export async function getRecordingEvents(sessionId: string) {
+  try {
+    const recording = await bb.sessions.recording.retrieve(sessionId);
+    if (!recording || recording.length === 0) {
+      throw new Error('Recording not available');
+    }
+    console.log("getRecordingEvents", recording)
+    // The recording endpoint returns an array of recording events
+    // Each event has a data property that contains the recording URL
+    return recording;
+  } catch (error) {
+    console.error('[getRecordingEvents] Error fetching recording:', error);
+    throw error;
   }
-  return debugInfo.debuggerFullscreenUrl;
 }
 
 export async function executeStep(sessionId: string, step: BrowserStep) {

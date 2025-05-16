@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useEffect, useRef } from 'react';
 import { useBrowser } from '@/hooks/use-browser';
 import { useArtifact } from '@/hooks/use-artifact';
+import { RecordingPlayer } from './recording-player';
 
 interface BrowserContentProps {
   title: string;
@@ -17,6 +18,7 @@ interface BrowserContentProps {
   getDocumentContentById: (index: number) => string;
   onSaveContent: (content: string, debounce: boolean) => void;
   isLoading: boolean;
+  recordingEvents?: any[] | null;
   metadata?: {
     sessionId?: string;
     instanceId?: string;
@@ -37,7 +39,8 @@ export function BrowserContent({
   currentVersionIndex,
   getDocumentContentById,
   onSaveContent,
-  isLoading: isDocumentLoading
+  isLoading: isDocumentLoading,
+  recordingEvents
 }: BrowserContentProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { metadata: artifactMetadata } = useArtifact();
@@ -50,7 +53,6 @@ export function BrowserContent({
     if (!iframe) return;
 
     const handleLoad = () => {
-      // Handle iframe load
       if (content && isCurrentVersion) {
         onSaveContent(content, true);
       }
@@ -72,7 +74,6 @@ export function BrowserContent({
   useEffect(() => {
     return () => {
       if (!sessionMetadata?.instanceId) {
-        // Clean up browser session
         console.log('[BrowserContent] Cleaning up session');
       }
     };
@@ -88,7 +89,9 @@ export function BrowserContent({
         "h-full": !isInline
       }
     )}>
-      {displayContent ? (
+      {recordingEvents ? (
+        <RecordingPlayer events={recordingEvents} isInline={isInline} />
+      ) : displayContent ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

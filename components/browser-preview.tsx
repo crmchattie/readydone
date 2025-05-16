@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo, memo } from "react";
 import { motion } from "framer-motion";
-import { BrowserResult, BrowserStep, BrowserState } from "@/lib/db/types";
+import { BrowserResult } from "@/lib/db/types";
 import { FullscreenIcon, LoaderIcon } from './icons';
 import { cn, fetcher } from '@/lib/utils';
 import { useArtifact } from '@/hooks/use-artifact';
@@ -124,7 +124,7 @@ export function BrowserPreview({ result: initialResult, args, isReadonly, isInli
   const hitboxRef = useRef<HTMLDivElement>(null);
   const hasAttemptedExecution = useRef(false);
   const [isExecuting, setIsExecuting] = useState(false);
-  const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
+  const [recordingEvents, setRecordingEvents] = useState<any[] | null>(null);
 
   const { data: documents, isLoading: isDocumentsFetching } = useSWR<
     Array<Document>
@@ -139,7 +139,7 @@ export function BrowserPreview({ result: initialResult, args, isReadonly, isInli
       chatId: args?.chatId,
       documentId: args?.documentId,
       isDocumentsFetching,
-      hasRecording: !!recordingUrl,
+      hasRecording: !!recordingEvents,
       isExecuting,
       hasAttemptedExecution: hasAttemptedExecution.current,
       sessionState: {
@@ -148,34 +148,38 @@ export function BrowserPreview({ result: initialResult, args, isReadonly, isInli
         stepsCount: session.steps.length
       }
     });
-  }, [previewDocument, args?.chatId, args?.documentId, isDocumentsFetching, recordingUrl, isExecuting, session]);
+  }, [previewDocument, args?.chatId, args?.documentId, isDocumentsFetching, recordingEvents, isExecuting, session]);
 
   // Handle recording URL fetch when session ends
   useEffect(() => {
-    const fetchRecordingUrl = async () => {
+    const fetchRecordingEvents = async () => {
       if (!previewDocument?.content) {
         debug('Skipping recording fetch - no document content');
         return;
       }
       
       debug('Fetching recording URL', { sessionId: previewDocument.content });
-      try {
-        const response = await fetch(`/api/browser/recording?sessionId=${previewDocument.content}`);
-        const data = await response.json();
-        if (data.success && data.recordingUrl) {
-          debug('Recording URL fetched successfully', { recordingUrl: data.recordingUrl });
-          setRecordingUrl(data.recordingUrl);
-        } else {
-          debug('No recording URL in response', { data });
-        }
-      } catch (error) {
-        console.error('Failed to fetch recording URL:', error);
-      }
+      // try {
+      //   const response = await fetch(`/api/browser/recording?sessionId=${previewDocument.content}`);
+      //   const data = await response.json();
+        
+      //   // Make sure we have an array of events
+      //   if (data.success && Array.isArray(data.recordingEvents)) {
+      //     debug('Recording events fetched successfully');
+      //     setRecordingEvents(data.recordingEvents);
+      //   } else {
+      //     debug('Invalid recording events in response', { data });
+      //     setRecordingEvents(null);
+      //   }
+      // } catch (error) {
+      //   console.error('Failed to fetch recording events:', error);
+      //   setRecordingEvents(null);
+      // }
     };
 
     if (previewDocument) {
       debug('Document exists, attempting to fetch recording');
-      fetchRecordingUrl();
+      fetchRecordingEvents();
     }
   }, [previewDocument]);
 
@@ -283,8 +287,9 @@ export function BrowserPreview({ result: initialResult, args, isReadonly, isInli
           isConnected={isConnected}
           isLoading={isLoading}
           onToggleFullscreen={() => {
-            const content = recordingUrl || sessionUrl;
-            if (content) {
+            // For recording events, we'll use a special URL format
+            const content = typeof sessionUrl === 'string' ? sessionUrl : '';
+            if (content || recordingEvents) {
               setArtifact(current => ({
                 ...current,
                 isVisible: true,
@@ -296,7 +301,8 @@ export function BrowserPreview({ result: initialResult, args, isReadonly, isInli
                   instanceId,
                   steps: session.steps,
                   isLoading: session.isLoading,
-                  isRecording: !!recordingUrl
+                  isRecording: !!recordingEvents,
+                  recordingEvents: recordingEvents || undefined
                 }
               }));
             }
@@ -305,24 +311,25 @@ export function BrowserPreview({ result: initialResult, args, isReadonly, isInli
       </div>
 
       <div className="flex-1">
-        {(sessionUrl || recordingUrl) ? (
+        {(sessionUrl || recordingEvents) ? (
           <BrowserContent
             title={args?.task || "Browser Session"}
-            content={recordingUrl || sessionUrl || ''}
+            content={sessionUrl || ''}
             isInline={isInline}
             status={isLoading ? 'streaming' : 'idle'}
             mode="edit"
             isCurrentVersion={true}
             currentVersionIndex={0}
-            getDocumentContentById={() => recordingUrl || sessionUrl || ''}
+            getDocumentContentById={() => sessionUrl || ''}
             onSaveContent={() => {}}
             isLoading={isLoading}
+            recordingEvents={recordingEvents}
             metadata={{
               sessionId: session.sessionId,
               instanceId,
               steps: session.steps,
               isLoading: session.isLoading,
-              isRecording: !!recordingUrl
+              isRecording: !!recordingEvents
             }}
           />
         ) : (

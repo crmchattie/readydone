@@ -12,7 +12,6 @@ import {
   integer,
   serial
 } from 'drizzle-orm/pg-core';
-import { z } from 'zod';
 
 export const user = pgTable('User', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
@@ -327,6 +326,7 @@ export const resources = pgTable('Resource', {
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
+  type: varchar('type', { enum: ['user', 'workflow'] }).notNull(),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 });
@@ -343,6 +343,7 @@ export const embeddings = pgTable('Embedding', {
     .references(() => resources.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
   embedding: json('embedding').notNull(), // Store embeddings as JSON array
+  type: varchar('type', { enum: ['user', 'workflow'] }).notNull(),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 });

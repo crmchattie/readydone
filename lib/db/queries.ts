@@ -1293,7 +1293,7 @@ export async function createResource({
   try {
     const [resource] = await db
       .insert(resources)
-      .values({ content, userId })
+      .values({ content, userId, type: 'user' })
       .returning();
 
     console.log("Processing resource:", { url, title });
@@ -1306,6 +1306,7 @@ export async function createResource({
           userId,
           content: embedding.content,
           embedding: embedding.embedding,
+          type: 'user'
         })
       )
     );
@@ -1539,3 +1540,85 @@ export async function getExternalPartyByPhone({ phone }: { phone: string }) {
     throw error;
   }
 }
+
+export async function createTypedResource({
+  content,
+  url,
+  title,
+  userId,
+  type,
+}: {
+  content: string;
+  url: string;
+  title: string;
+  userId: string;
+  type: 'user' | 'workflow';
+}): Promise<Resource> {
+  return executeWithRetry(async () => {
+    // Generate embeddings for the content
+    const embeddingData = await generateEmbeddings(content, { url, title });
+
+    // Create the resource
+    const [resource] = await db.insert(resources).values({
+      userId,
+      content,
+      type
+    }).returning();
+
+    // Create embeddings with type
+    await db.insert(embeddings).values(
+      embeddingData.map(data => ({
+        userId,
+        resourceId: resource.id,
+        content: data.content,
+        embedding: data.embedding,
+        type,
+      }))
+    );
+
+    return resource;
+  });
+}
+
+export const findRelevantTypedContent = async (
+  query: string,
+  type: 'user' | 'workflow',
+  userId?: string,
+  limit: number = 5
+): Promise<Array<{ content: string; similarity: number }>> => {
+  return executeWithRetry(async () => {
+    // Generate embedding for the query
+    const queryEmbedding = await generateEmbedding(query);
+
+    // Calculate similarity using cosine distance
+    const similarity = sql<number>`1 - (${sql`${embeddings.embedding} <-> ${queryEmbedding}`})`;
+
+    // Build the where clause
+    const whereConditions = [
+      eq(embeddings.type, type),
+      gt(similarity, 0.5) // Only consider results with similarity > 0.5
+    ];
+    
+    // Add userId condition if provided
+    if (userId) {
+      whereConditions.push(eq(embeddings.userId, userId));
+    }
+
+    // Fetch relevant content from the database
+    const similarContent = await db
+      .select({
+        content: embeddings.content,
+        similarity
+      })
+      .from(embeddings)
+      .where(and(...whereConditions))
+      .orderBy(desc(similarity))
+      .limit(limit);
+
+    // Transform the results into a structured format
+    return similarContent.map(item => ({
+      content: item.content.trim(),
+      similarity: parseFloat(item.similarity.toFixed(2))
+    }));
+  });
+};
